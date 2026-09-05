@@ -198,6 +198,20 @@
   .loop-controls{ display:flex; align-items:center; gap:14px; margin-top:16px; flex-wrap:wrap; }
   .loop-status{ font-family:var(--mono); font-size:12px; color:var(--muted); transition:color .15s ease; }
   .loop-status.flash{ color:var(--tier-preliminary); }
+  .loop-interval{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+
+  .loop-tips{ margin-top:18px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:0 16px; }
+  .loop-tips summary{
+    cursor:pointer; padding:12px 0; font-family:var(--mono); font-size:11.5px; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--muted); list-style:none;
+  }
+  .loop-tips summary::-webkit-details-marker{ display:none; }
+  .loop-tips summary::before{ content:"+ "; color:var(--accent); }
+  .loop-tips[open] summary::before{ content:"– "; }
+  .loop-tips ul{ margin:0 0 14px; padding-left:18px; }
+  .loop-tips li{ font-size:13px; line-height:1.55; margin-bottom:8px; color:var(--ink); }
+  .loop-tips li:last-child{ margin-bottom:0; }
+  .loop-tips li b{ font-weight:600; }
 
   /* ---------- safety ---------- */
   .safety{
@@ -723,7 +737,7 @@
   loopSection.innerHTML = `
     <div class="cat-head">
       <h2>Loop Playlist</h2>
-      <div class="cat-note">Click the + on any preset above to queue it here — up to three. Once all three are picked, Start Loop rotates through them in order, one minute each, on repeat until you stop it. Click a numbered pick again to remove it.</div>
+      <div class="cat-note">Click the + on any preset above to queue it here — up to three. Once all three are picked, Start Loop rotates through them in order, on repeat, until you stop it. Click a numbered pick again to remove it.</div>
     </div>
     <div class="loop-slots" id="loopSlots">
       <div class="loop-slot" data-slot="0"></div>
@@ -732,8 +746,25 @@
     </div>
     <div class="loop-controls">
       <button class="play-btn" id="loopPlayBtn" disabled><span class="tri"></span><span id="loopPlayLabel">Start Loop</span></button>
+      <div class="loop-interval">EACH FOR
+        <select id="loopInterval">
+          <option value="5">5 min</option>
+          <option value="10" selected>10 min</option>
+          <option value="15">15 min</option>
+          <option value="20">20 min</option>
+        </select>
+      </div>
       <div class="loop-status" id="loopStatus">0/3 slots filled</div>
     </div>
+    <details class="loop-tips">
+      <summary>Notes on sequencing frequencies</summary>
+      <ul>
+        <li><b>Layering isn't recommended.</b> Every study cited on the cards above tested one steady frequency at a time — none tested overlapping beats. Competing rhythms may just cancel each other out rather than combine.</li>
+        <li><b>Keep it to 2–3 stages.</b> More gets hard to follow, and there's no evidence extra stages help.</li>
+        <li><b>Longer is closer to what was actually studied.</b> The trials that measured real effects ran a single frequency continuously for 20–40+ minutes. Five minutes a stage is more of a preview than a protocol; 15–20 minutes gives each one a real chance to do something.</li>
+        <li><b>Order matters for wind-down vs. wake-up.</b> Going high → low (e.g. Alpha → Theta → Delta) loosely mirrors how the brain's own rhythms shift toward sleep. Reverse it (Delta/Theta → Alpha) if you want to feel more alert. For anxiety or focus in the moment, skip sequencing entirely — the alpha trials just used one steady tone the whole time.</li>
+      </ul>
+    </details>
   `;
   catsEl.appendChild(loopSection);
 
@@ -741,10 +772,15 @@
   const loopPlayBtn = loopSection.querySelector("#loopPlayBtn");
   const loopPlayLabelEl = loopSection.querySelector("#loopPlayLabel");
   const loopStatusEl = loopSection.querySelector("#loopStatus");
+  const loopIntervalSelect = loopSection.querySelector("#loopInterval");
+
+  function getLoopIntervalSeconds(){
+    return Number(loopIntervalSelect.value) * 60;
+  }
 
   let loopActive = false;
   let loopIndex = 0;
-  let loopRemaining = 60;
+  let loopRemaining = 600;
   let loopTickInterval = null;
 
   function renderLoopSlot(i){
@@ -827,7 +863,9 @@
     const filled = loopSlotsState.filter(Boolean).length;
     if(!loopActive){
       loopPlayBtn.disabled = filled < LOOP_SIZE;
-      loopStatusEl.textContent = filled < LOOP_SIZE ? `${filled}/3 slots filled` : "Ready — one minute per frequency";
+      loopStatusEl.textContent = filled < LOOP_SIZE
+        ? `${filled}/3 slots filled`
+        : `Ready — ${loopIntervalSelect.value} min per frequency`;
     }
   }
 
@@ -840,13 +878,16 @@
     else startLoop();
   });
 
+  loopIntervalSelect.addEventListener("change", ()=> updateLoopPlayState());
+
   function startLoop(){
     if(loopSlotsState.filter(Boolean).length < LOOP_SIZE) return;
     loopActive = true;
     loopIndex = 0;
-    loopRemaining = 60;
+    loopRemaining = getLoopIntervalSeconds();
     loopPlayLabelEl.textContent = "Stop Loop";
     loopPlayBtn.classList.add("is-stop");
+    loopIntervalSelect.disabled = true;
     playLoopSlot(loopIndex);
     loopTickInterval = setInterval(loopTick, 1000);
   }
@@ -856,7 +897,7 @@
     updateLoopStatusText();
     if(loopRemaining <= 0){
       loopIndex = (loopIndex + 1) % LOOP_SIZE;
-      loopRemaining = 60;
+      loopRemaining = getLoopIntervalSeconds();
       playLoopSlot(loopIndex);
     }
   }
@@ -871,13 +912,14 @@
   }
 
   function updateLoopStatusText(){
-    loopStatusEl.textContent = `Playing ${loopIndex+1} of 3 · next in ${loopRemaining}s`;
+    loopStatusEl.textContent = `Playing ${loopIndex+1} of 3 · next in ${formatTime(loopRemaining)}`;
   }
 
   function cancelLoop(){
     if(!loopActive) return;
     loopActive = false;
     if(loopTickInterval){ clearInterval(loopTickInterval); loopTickInterval = null; }
+    loopIntervalSelect.disabled = false;
     loopSlotEls.forEach(el=>el.classList.remove("is-playing"));
     loopPlayLabelEl.textContent = "Start Loop";
     loopPlayBtn.classList.remove("is-stop");
@@ -1212,7 +1254,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20260905195400";
+  var CURRENT_VERSION = "20260905200351";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
