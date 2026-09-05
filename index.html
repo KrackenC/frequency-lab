@@ -273,6 +273,12 @@
 }
 #update-bar button#update-now{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
 </style>
+<link rel="icon" href="./favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Frequency Lab">
+<meta name="theme-color" content="#0c1116">
 </head>
 <body>
 <div class="wrap">
@@ -991,7 +997,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20260905181258";
+  var CURRENT_VERSION = "20260905193216";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
