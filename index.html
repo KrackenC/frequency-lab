@@ -139,7 +139,15 @@
   .card p.sources b{ color:var(--ink); font-weight:600; }
   .card p.sources a{ color:var(--accent); text-decoration:none; border-bottom:1px solid transparent; }
   .card p.sources a:hover, .card p.sources a:focus-visible{ border-bottom-color:var(--accent); }
-  .card-foot{ margin-top:auto; padding-top:4px; }
+  .card-foot{ margin-top:auto; padding-top:4px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .pick-btn{
+    flex:none; display:flex; align-items:center; justify-content:center; width:36px; height:36px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:50%;
+    color:var(--muted); font-family:var(--mono); font-size:15px; font-weight:600; cursor:pointer;
+  }
+  .pick-btn:hover, .pick-btn:focus-visible{ border-color:var(--accent); color:var(--accent); }
+  .pick-btn.picked{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .card.in-loop{ border-color:var(--accent); }
   .load-btn{
     display:inline-flex; align-items:center; gap:7px; background:transparent; color:var(--accent);
     border:1px solid var(--accent); border-radius:var(--radius); padding:7px 13px; font-size:12.5px;
@@ -166,6 +174,30 @@
   }
   .mode-toggle button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .lab-actions{ display:flex; align-items:flex-end; }
+
+  /* ---------- loop playlist ---------- */
+  .loop-slots{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:16px; }
+  .loop-slot{
+    min-height:96px; border:2px dashed var(--border); border-radius:var(--radius);
+    background:var(--surface); display:flex; align-items:center; gap:10px; padding:12px;
+    transition:border-color .12s ease, background .12s ease;
+  }
+  .loop-slot.filled{ border-style:solid; }
+  .loop-slot.is-playing{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .loop-slot-num{ font-family:var(--mono); font-size:11px; color:var(--muted); flex:none; }
+  .loop-slot-empty{ font-size:12.5px; color:var(--muted); }
+  .loop-slot-body{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; }
+  .loop-slot-text{ display:flex; flex-direction:column; min-width:0; }
+  .loop-slot-name{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .loop-slot-freq{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .loop-slot-clear{
+    flex:none; width:22px; height:22px; border-radius:50%; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--muted); font-size:13px; line-height:1; cursor:pointer;
+  }
+  .loop-slot-clear:hover{ border-color:var(--tier-preliminary); color:var(--tier-preliminary); }
+  .loop-controls{ display:flex; align-items:center; gap:14px; margin-top:16px; flex-wrap:wrap; }
+  .loop-status{ font-family:var(--mono); font-size:12px; color:var(--muted); transition:color .15s ease; }
+  .loop-status.flash{ color:var(--tier-preliminary); }
 
   /* ---------- safety ---------- */
   .safety{
@@ -250,6 +282,10 @@
     .card p.pairs, .card p.sources{ font-size:12px; }
 
     .lab-panel{ padding:16px; gap:16px; }
+
+    .loop-slots{ grid-template-columns:1fr; gap:10px; }
+    .loop-slot{ min-height:auto; padding:10px; }
+    .pick-btn{ width:40px; height:40px; }
 
     .sidebar-panel{ padding:14px; gap:10px; }
     .mp-item{ padding:10px; gap:10px; }
@@ -558,6 +594,7 @@
 
   const catsEl = document.getElementById("categories");
   const PRESET_INDEX = {}; // id -> { cfg, tier, mode }
+  const PICK_BUTTONS = {}; // id -> pick button element
 
   PRESETS.forEach(cat=>{
     const section = document.createElement("section");
@@ -595,9 +632,13 @@
         ${item.sources ? `<p class="sources"><b>Source${item.sources.length>1?"s":""}:</b> ${item.sources.map(s=>`<a href="${s.url}" target="_blank" rel="noopener">${s.label}</a>`).join(" · ")}</p>` : ""}
         <div class="card-foot">
           <button class="load-btn" type="button"><span class="tri"></span>Play</button>
+          <button class="pick-btn" type="button">+</button>
         </div>
       `;
       card.querySelector(".load-btn").addEventListener("click", ()=> playConfig(cfg, item.id));
+      const pickBtn = card.querySelector(".pick-btn");
+      pickBtn.addEventListener("click", ()=> togglePick(item.id));
+      PICK_BUTTONS[item.id] = pickBtn;
       grid.appendChild(card);
     });
     section.appendChild(grid);
@@ -671,6 +712,177 @@
       headphones: labMode==="binaural"
     }, "custom");
   });
+
+  /* ---------------- loop playlist ---------------- */
+
+  const LOOP_SIZE = 3;
+  const loopSlotsState = [null, null, null]; // each: { id } | null
+
+  const loopSection = document.createElement("section");
+  loopSection.className = "category";
+  loopSection.innerHTML = `
+    <div class="cat-head">
+      <h2>Loop Playlist</h2>
+      <div class="cat-note">Click the + on any preset above to queue it here — up to three. Once all three are picked, Start Loop rotates through them in order, one minute each, on repeat until you stop it. Click a numbered pick again to remove it.</div>
+    </div>
+    <div class="loop-slots" id="loopSlots">
+      <div class="loop-slot" data-slot="0"></div>
+      <div class="loop-slot" data-slot="1"></div>
+      <div class="loop-slot" data-slot="2"></div>
+    </div>
+    <div class="loop-controls">
+      <button class="play-btn" id="loopPlayBtn" disabled><span class="tri"></span><span id="loopPlayLabel">Start Loop</span></button>
+      <div class="loop-status" id="loopStatus">0/3 slots filled</div>
+    </div>
+  `;
+  catsEl.appendChild(loopSection);
+
+  const loopSlotEls = Array.from(loopSection.querySelectorAll(".loop-slot"));
+  const loopPlayBtn = loopSection.querySelector("#loopPlayBtn");
+  const loopPlayLabelEl = loopSection.querySelector("#loopPlayLabel");
+  const loopStatusEl = loopSection.querySelector("#loopStatus");
+
+  let loopActive = false;
+  let loopIndex = 0;
+  let loopRemaining = 60;
+  let loopTickInterval = null;
+
+  function renderLoopSlot(i){
+    const el = loopSlotEls[i];
+    const state = loopSlotsState[i];
+    el.classList.toggle("filled", !!state);
+    if(!state){
+      el.innerHTML = `<span class="loop-slot-num">0${i+1}</span><div class="loop-slot-empty">Not picked yet</div>`;
+      return;
+    }
+    const entry = PRESET_INDEX[state.id];
+    const tier = TIERS[entry.tier];
+    el.innerHTML = `
+      <span class="loop-slot-num">0${i+1}</span>
+      <div class="loop-slot-body">
+        <span class="dot" style="background:${tier.color}"></span>
+        <span class="loop-slot-text">
+          <span class="loop-slot-name">${entry.cfg.label}</span>
+          <span class="loop-slot-freq">${freqLabel(entry.cfg, entry.mode)}</span>
+        </span>
+      </div>
+      <button type="button" class="loop-slot-clear" aria-label="Remove this frequency">×</button>
+    `;
+    el.querySelector(".loop-slot-clear").addEventListener("click", ()=> setLoopSlot(i, null));
+  }
+
+  function setLoopSlot(i, id){
+    loopSlotsState[i] = id ? { id } : null;
+    renderLoopSlot(i);
+    if(loopActive && loopSlotsState.filter(Boolean).length < LOOP_SIZE){
+      stopPlayback(false);
+    }
+    updateLoopPlayState();
+    refreshPickButtons();
+  }
+
+  function togglePick(id){
+    const existingSlot = loopSlotsState.findIndex(s => s && s.id === id);
+    if(existingSlot >= 0){
+      setLoopSlot(existingSlot, null);
+      return;
+    }
+    const emptySlot = loopSlotsState.findIndex(s => !s);
+    if(emptySlot === -1){
+      flashLoopFull();
+      return;
+    }
+    setLoopSlot(emptySlot, id);
+  }
+
+  function refreshPickButtons(){
+    Object.keys(PICK_BUTTONS).forEach(id=>{
+      const btn = PICK_BUTTONS[id];
+      const card = document.getElementById("card-" + id);
+      const slotIdx = loopSlotsState.findIndex(s => s && s.id === id);
+      if(slotIdx >= 0){
+        btn.textContent = String(slotIdx + 1);
+        btn.classList.add("picked");
+        btn.setAttribute("aria-label", `Remove ${PRESET_INDEX[id].cfg.label} from the loop playlist (currently pick ${slotIdx+1})`);
+        if(card) card.classList.add("in-loop");
+      } else {
+        btn.textContent = "+";
+        btn.classList.remove("picked");
+        btn.setAttribute("aria-label", `Add ${PRESET_INDEX[id].cfg.label} to the loop playlist`);
+        if(card) card.classList.remove("in-loop");
+      }
+    });
+  }
+
+  function flashLoopFull(){
+    loopStatusEl.textContent = "Loop is full — click a numbered pick to swap it out first.";
+    loopStatusEl.classList.add("flash");
+    setTimeout(()=>{
+      loopStatusEl.classList.remove("flash");
+      updateLoopPlayState();
+    }, 1800);
+  }
+
+  function updateLoopPlayState(){
+    const filled = loopSlotsState.filter(Boolean).length;
+    if(!loopActive){
+      loopPlayBtn.disabled = filled < LOOP_SIZE;
+      loopStatusEl.textContent = filled < LOOP_SIZE ? `${filled}/3 slots filled` : "Ready — one minute per frequency";
+    }
+  }
+
+  for(let i=0;i<LOOP_SIZE;i++) renderLoopSlot(i);
+  updateLoopPlayState();
+  refreshPickButtons();
+
+  loopPlayBtn.addEventListener("click", ()=>{
+    if(loopActive) stopPlayback(false);
+    else startLoop();
+  });
+
+  function startLoop(){
+    if(loopSlotsState.filter(Boolean).length < LOOP_SIZE) return;
+    loopActive = true;
+    loopIndex = 0;
+    loopRemaining = 60;
+    loopPlayLabelEl.textContent = "Stop Loop";
+    loopPlayBtn.classList.add("is-stop");
+    playLoopSlot(loopIndex);
+    loopTickInterval = setInterval(loopTick, 1000);
+  }
+
+  function loopTick(){
+    loopRemaining--;
+    updateLoopStatusText();
+    if(loopRemaining <= 0){
+      loopIndex = (loopIndex + 1) % LOOP_SIZE;
+      loopRemaining = 60;
+      playLoopSlot(loopIndex);
+    }
+  }
+
+  function playLoopSlot(i){
+    const state = loopSlotsState[i];
+    if(!state) return;
+    const entry = PRESET_INDEX[state.id];
+    playConfig(entry.cfg, state.id, {fromLoop:true});
+    loopSlotEls.forEach((el, idx)=> el.classList.toggle("is-playing", idx===i));
+    updateLoopStatusText();
+  }
+
+  function updateLoopStatusText(){
+    loopStatusEl.textContent = `Playing ${loopIndex+1} of 3 · next in ${loopRemaining}s`;
+  }
+
+  function cancelLoop(){
+    if(!loopActive) return;
+    loopActive = false;
+    if(loopTickInterval){ clearInterval(loopTickInterval); loopTickInterval = null; }
+    loopSlotEls.forEach(el=>el.classList.remove("is-playing"));
+    loopPlayLabelEl.textContent = "Start Loop";
+    loopPlayBtn.classList.remove("is-stop");
+    updateLoopPlayState();
+  }
 
   /* ---------------- audio engine ---------------- */
 
@@ -895,7 +1107,9 @@
     stopBtn.disabled = !isPlaying;
   }
 
-  function playConfig(cfg, id){
+  function playConfig(cfg, id, opts){
+    opts = opts || {};
+    if(!opts.fromLoop) cancelLoop();
     ensureAudio();
     const hadPrev = currentNodes.length > 0;
     if(hadPrev){
@@ -922,6 +1136,7 @@
   }
 
   function stopPlayback(hard){
+    cancelLoop();
     if(!audioCtx) return;
     clearAllTimers();
     const nodes = currentNodes; currentNodes = [];
@@ -997,7 +1212,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20260905193216";
+  var CURRENT_VERSION = "20260905195400";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
