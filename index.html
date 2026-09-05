@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frequency Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#eef1f2;
+    --surface:#ffffff;
+    --surface-2:#e3e8ea;
+    --ink:#12181f;
+    --muted:#5b6570;
+    --border:#c9d1d4;
+    --accent:#0f8a86;
+    --accent-ink:#ffffff;
+    --tier-supported:#3568ad;
+    --tier-moderate:#2f8f5b;
+    --tier-preliminary:#b8791f;
+    --tier-traditional:#7c8291;
+    --warn-bg:#fbf3e3;
+    --warn-border:#d9a441;
+    --mono:'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --radius:6px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0c1116; --surface:#141b22; --surface-2:#1b232c; --ink:#e7edf0; --muted:#93a1ab; --border:#2a343d;
+      --accent:#35d6c9; --accent-ink:#062421;
+      --tier-supported:#6ea8e0; --tier-moderate:#5ad392; --tier-preliminary:#e3a83f; --tier-traditional:#9aa4ae;
+      --warn-bg:#241c0f; --warn-border:#8a6323;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c1116; --surface:#141b22; --surface-2:#1b232c; --ink:#e7edf0; --muted:#93a1ab; --border:#2a343d;
+    --accent:#35d6c9; --accent-ink:#062421;
+    --tier-supported:#6ea8e0; --tier-moderate:#5ad392; --tier-preliminary:#e3a83f; --tier-traditional:#9aa4ae;
+    --warn-bg:#241c0f; --warn-border:#8a6323;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{ text-wrap:balance; font-family:var(--mono); font-weight:600; letter-spacing:-0.01em; margin:0; }
+  p{ margin:0; line-height:1.55; }
+  button{ font-family:inherit; }
+  ::selection{ background:var(--accent); color:var(--accent-ink); }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 22px; }
+
+  /* ---------- header ---------- */
+  header.top{ padding:30px 0 20px; }
+  .top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+  .brand{ display:flex; flex-direction:column; gap:6px; }
+  .brand h1{ font-size:clamp(28px,4vw,38px); }
+  .brand .tag{ color:var(--muted); font-size:15px; max-width:52ch; }
+  .device-badge{
+    font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:6px 12px;
+    white-space:nowrap; margin-top:4px;
+  }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:20px; }
+  .legend-item{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted); }
+  .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+
+  /* ---------- player ---------- */
+  .player{
+    position:sticky; top:0; z-index:20; background:var(--bg);
+    border-bottom:1px solid var(--border); padding:14px 0 16px;
+  }
+  .player-inner{
+    display:grid; grid-template-columns:minmax(160px,220px) 1fr minmax(220px,300px);
+    gap:18px; align-items:center; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px 18px;
+  }
+  .now-playing .eyebrow{ font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .now-playing .name{ font-family:var(--mono); font-size:17px; font-weight:600; margin-top:3px; }
+  .now-playing .freqs{ font-family:var(--mono); font-size:12.5px; color:var(--muted); margin-top:3px; }
+  .now-playing .hp-note{ display:inline-block; margin-top:6px; font-size:11px; color:var(--tier-preliminary); font-family:var(--mono); }
+
+  canvas#scope{ width:100%; height:74px; display:block; border-radius:4px; background:var(--surface-2); }
+
+  .transport{ display:flex; align-items:center; gap:14px; justify-content:flex-end; flex-wrap:wrap; }
+  .play-btn{
+    display:flex; align-items:center; gap:8px; background:var(--accent); color:var(--accent-ink);
+    border:none; border-radius:var(--radius); padding:10px 16px; font-weight:600; font-size:14px; cursor:pointer;
+  }
+  .play-btn .tri{ width:0; height:0; border-top:6px solid transparent; border-bottom:6px solid transparent; border-left:9px solid var(--accent-ink); }
+  .play-btn.is-stop .tri{ border:none; width:10px; height:10px; background:var(--accent-ink); border-radius:2px; }
+  .play-btn:disabled{ opacity:.4; cursor:default; }
+
+  .vol{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .vol input[type=range]{ width:90px; }
+  .timer{ display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  select, input[type=number]{
+    font-family:var(--mono); background:var(--surface-2); color:var(--ink); border:1px solid var(--border);
+    border-radius:4px; padding:5px 7px; font-size:12px;
+  }
+  input[type=range]{ accent-color:var(--accent); }
+  #timerLabel{ font-variant-numeric:tabular-nums; min-width:38px; }
+
+  /* ---------- intro ---------- */
+  .intro{ padding:34px 0 10px; display:grid; grid-template-columns:3px 1fr; gap:18px; max-width:800px; }
+  .intro .rule{ background:var(--accent); border-radius:2px; }
+  .intro p{ color:var(--ink); font-size:15.5px; }
+  .intro p + p{ margin-top:12px; }
+  .intro .byline{ margin-top:12px; font-family:var(--mono); font-size:11.5px; color:var(--muted); letter-spacing:.04em; }
+
+  /* ---------- sections ---------- */
+  section.category{ padding:34px 0 6px; }
+  .cat-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:6px; flex-wrap:wrap; }
+  .cat-head h2{ font-size:19px; }
+  .cat-head .cat-note{ color:var(--muted); font-size:13px; max-width:46ch; }
+
+  .card-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(258px,1fr)); gap:14px; margin-top:16px; }
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; display:flex; flex-direction:column; gap:10px; transition:border-color .15s ease;
+  }
+  .card.is-active{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .chip{
+    align-self:flex-start; display:flex; align-items:center; gap:6px; font-family:var(--mono);
+    font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px 3px 7px;
+    border-radius:999px; border:1px solid currentColor;
+  }
+  .card h3{ font-size:16px; font-family:var(--sans); font-weight:600; }
+  .card .freq{ font-family:var(--mono); font-size:13px; color:var(--muted); margin-top:-4px; }
+  .card p.blurb{ font-size:13.5px; color:var(--ink); }
+  .card p.pairs{ font-size:12.5px; color:var(--muted); }
+  .card p.pairs b{ color:var(--ink); font-weight:600; }
+  .card p.sources{ font-size:11.5px; color:var(--muted); }
+  .card p.sources b{ color:var(--ink); font-weight:600; }
+  .card p.sources a{ color:var(--accent); text-decoration:none; border-bottom:1px solid transparent; }
+  .card p.sources a:hover, .card p.sources a:focus-visible{ border-bottom-color:var(--accent); }
+  .card-foot{ margin-top:auto; padding-top:4px; }
+  .load-btn{
+    display:inline-flex; align-items:center; gap:7px; background:transparent; color:var(--accent);
+    border:1px solid var(--accent); border-radius:var(--radius); padding:7px 13px; font-size:12.5px;
+    font-weight:600; cursor:pointer; font-family:var(--mono);
+  }
+  .load-btn:hover{ background:var(--accent); color:var(--accent-ink); }
+  .load-btn .tri{ width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:7px solid currentColor; }
+  .card.is-active .load-btn{ background:var(--accent); color:var(--accent-ink); }
+
+  /* ---------- custom lab ---------- */
+  .lab-panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px;
+  }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .field .row{ display:flex; align-items:center; gap:10px; }
+  .field .row input[type=range]{ flex:1; }
+  .field .row output{ font-family:var(--mono); font-size:13px; width:64px; text-align:right; }
+  .mode-toggle{ display:flex; gap:6px; }
+  .mode-toggle button{
+    flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--muted);
+    border-radius:4px; padding:8px 6px; font-size:12px; font-family:var(--mono); cursor:pointer;
+  }
+  .mode-toggle button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .lab-actions{ display:flex; align-items:flex-end; }
+
+  /* ---------- safety ---------- */
+  .safety{
+    margin:44px 0 40px; background:var(--warn-bg); border:1px solid var(--warn-border);
+    border-left:4px solid var(--warn-border); border-radius:var(--radius); padding:18px 20px;
+  }
+  .safety .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--warn-border); }
+  .safety ul{ margin:10px 0 0; padding-left:18px; }
+  .safety li{ font-size:13.5px; margin-bottom:6px; line-height:1.5; }
+  .safety li:last-child{ margin-bottom:0; }
+
+  footer.foot{ padding:20px 0 50px; color:var(--muted); font-size:12px; font-family:var(--mono); }
+
+  /* ---------- layout + sidebar ---------- */
+  .layout{
+    max-width:1180px; margin:0 auto; padding:0 22px;
+    display:grid; grid-template-columns:1fr 272px; gap:30px; align-items:start;
+  }
+  .content{ min-width:0; }
+  .sidebar{ position:sticky; top:120px; }
+  .sidebar-panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; display:flex; flex-direction:column; gap:12px; margin-top:34px;
+  }
+  .sidebar-head{ display:flex; flex-direction:column; gap:2px; }
+  .sidebar-head h2{ font-size:15px; }
+  .sidebar-sub{ font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .mp-empty{ font-size:12.5px; color:var(--muted); line-height:1.5; }
+  .mp-list{ display:flex; flex-direction:column; gap:8px; }
+  .mp-item{
+    display:flex; align-items:center; gap:9px; width:100%; text-align:left; font:inherit; color:inherit;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:9px 10px; cursor:pointer;
+  }
+  .mp-item:hover{ border-color:var(--accent); }
+  .mp-item.is-active{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .mp-rank{ font-family:var(--mono); font-size:11px; color:var(--muted); width:15px; flex:none; }
+  .mp-item .dot{ flex:none; }
+  .mp-body{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .mp-name{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mp-freq{ font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+  .mp-count{ font-family:var(--mono); font-size:10.5px; color:var(--muted); flex:none; }
+
+  @media (max-width:960px){
+    .layout{ grid-template-columns:1fr; }
+    .sidebar{ position:static; order:-1; }
+    .sidebar-panel{ margin-top:0; }
+  }
+
+  @media (max-width:820px){
+    .player-inner{ grid-template-columns:1fr; }
+    .transport{ justify-content:flex-start; }
+    canvas#scope{ height:56px; }
+  }
+
+  @media (max-width:560px){
+    .wrap, .layout{ padding:0 16px; }
+    header.top{ padding:22px 0 16px; }
+    .brand h1{ font-size:26px; }
+    .brand .tag{ font-size:13.5px; }
+    .legend{ gap:8px 14px; margin-top:14px; }
+    .legend-item{ font-size:12px; }
+
+    .player{ padding:10px 0; }
+    .player-inner{ padding:12px 14px; gap:12px; border-radius:5px; }
+    .now-playing .name{ font-size:15px; }
+    .now-playing .freqs{ font-size:11.5px; }
+    canvas#scope{ height:40px; }
+
+    .transport{ gap:10px 14px; }
+    .play-btn{ padding:9px 14px; font-size:13px; }
+    .vol, .timer{ flex:1 1 128px; font-size:10.5px; }
+    .vol input[type=range]{ flex:1; width:auto; min-width:60px; }
+
+    .intro{ padding:24px 0 4px; gap:14px; grid-template-columns:3px 1fr; }
+    .intro p{ font-size:14px; }
+
+    section.category{ padding:26px 0 4px; }
+    .cat-head h2{ font-size:17px; }
+    .card-grid{ gap:12px; margin-top:14px; }
+    .card{ padding:15px; gap:9px; }
+    .card p.blurb{ font-size:13px; }
+    .card p.pairs, .card p.sources{ font-size:12px; }
+
+    .lab-panel{ padding:16px; gap:16px; }
+
+    .sidebar-panel{ padding:14px; gap:10px; }
+    .mp-item{ padding:10px; gap:10px; }
+    .mp-name{ font-size:13px; }
+    .mp-freq, .mp-count{ font-size:11px; }
+
+    .safety{ padding:16px; margin:36px 0 32px; }
+    .safety li{ font-size:13px; }
+  }
+
+#update-bar{
+  position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+  z-index:9999; background:var(--surface); color:var(--ink);
+  border:1px solid var(--border); border-radius:8px; padding:10px 12px;
+  display:flex; align-items:center; gap:10px; font-family:var(--sans);
+  font-size:13px; box-shadow:0 6px 20px rgba(0,0,0,.18); max-width:90vw;
+}
+#update-bar button{
+  font-family:var(--mono); font-size:12px; border-radius:5px; padding:6px 10px;
+  cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--ink);
+}
+#update-bar button#update-now{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="top-row">
+      <div class="brand">
+        <h1>Frequency Lab</h1>
+        <p class="tag">An evidence-graded tone generator — binaural beats, isochronic tones, solfeggio frequencies, and ambient noise, each rated by how solid the research actually is.</p>
+      </div>
+      <span class="device-badge">Not a medical device</span>
+    </div>
+    <div class="legend" id="legend"></div>
+  </header>
+</div>
+
+  <div class="player">
+    <div class="wrap">
+      <div class="player-inner">
+        <div class="now-playing">
+          <div class="eyebrow">Now playing</div>
+          <div class="name" id="npName">Silence</div>
+          <div class="freqs" id="npFreqs">— Hz</div>
+          <div class="hp-note" id="npHp" hidden>⧉ needs stereo headphones</div>
+        </div>
+        <canvas id="scope"></canvas>
+        <div class="transport">
+          <button class="play-btn" id="stopBtn" disabled><span class="tri"></span><span id="stopLabel">Stop</span></button>
+          <div class="vol">VOL
+            <input type="range" id="volume" min="0" max="100" value="38">
+            <span id="volReadout">38%</span>
+          </div>
+          <div class="timer">TIMER
+            <select id="timerSelect">
+              <option value="0">Off</option>
+              <option value="5">5m</option>
+              <option value="10">10m</option>
+              <option value="20">20m</option>
+              <option value="30">30m</option>
+              <option value="45">45m</option>
+              <option value="60">60m</option>
+            </select>
+            <span id="timerLabel"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+  <div class="content">
+
+  <section class="intro">
+    <div class="rule"></div>
+    <div>
+      <p>This tool plays eight families of sound, and they do not share an evidence base. Alpha and theta binaural beats have real, if modest, randomized-trial support for state anxiety and relaxation. Forty-hertz gamma stimulation is a live, unresolved research question in neurodegeneration — promising in animal models and early human trials, proven as a treatment in neither. Traditional Chinese five-element tones and Himalayan singing-bowl meditation have a genuine small clinical literature behind the practices, though not behind the specific pitches. Solfeggio tones, 432&nbsp;Hz tuning, and the popular chakra-frequency set rest on twentieth-century numerology, not clinical data; any calm they produce is the calm of any pleasant tone. Pink and brown noise are the least exotic and the best-supported entries here, backed by real sleep-lab data.</p>
+      <p>Check the tier badge on a card before you trust its pitch. None of this replaces diagnosis or treatment from a clinician.</p>
+      <div class="byline">Evidence tiers reflect published research quality, not marketing claims.</div>
+    </div>
+  </section>
+
+  <main id="categories"></main>
+
+  <div class="safety">
+    <div class="eyebrow">Before you press play</div>
+    <ul>
+      <li><b>This is a wellness aid, not therapy.</b> Use it alongside — never instead of — care from a clinician for diagnosed anxiety, insomnia, or mood or neurological conditions.</li>
+      <li><b>Binaural beats only work over stereo headphones</b> — each ear needs its own tone. Speakers will just play two audible pitches.</li>
+      <li><b>Audio-triggered seizures are rare but documented.</b> If you have a seizure disorder, particularly one with sound sensitivity, talk to your neurologist before using rhythmic or pulsed tones.</li>
+      <li><b>Keep volume moderate</b> and take breaks — the player caps loudness, but sustained close-headphone listening can still fatigue your ears.</li>
+      <li>Don't listen while driving or operating machinery, especially at the slower, drowsier delta and theta settings.</li>
+    </ul>
+  </div>
+
+  <footer class="foot">Frequency Lab · a tone generator for personal, non-clinical use.</footer>
+
+  </div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-panel">
+      <div class="sidebar-head">
+        <h2>Most Played</h2>
+        <span class="sidebar-sub">Saved on this device</span>
+      </div>
+      <p class="mp-empty" id="mpEmpty">Play a few tones and your top 3 will show up here for one-tap access.</p>
+      <div class="mp-list" id="mpList"></div>
+    </div>
+  </aside>
+
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  const TIERS = {
+    supported:   { label:"Well-Supported",        color:"var(--tier-supported)"   },
+    moderate:    { label:"Moderate Evidence",      color:"var(--tier-moderate)"    },
+    preliminary: { label:"Preliminary / Emerging", color:"var(--tier-preliminary)" },
+    traditional: { label:"Traditional / Unproven", color:"var(--tier-traditional)" }
+  };
+
+  const PRESETS = [
+    {
+      key:"binaural", title:"Binaural Beats", mode:"binaural",
+      note:"Two slightly detuned tones, one per ear — your brain perceives the difference as a rhythmic “beat.” Requires stereo headphones.",
+      items:[
+        {id:"bb-delta", name:"Delta · 2 Hz", base:100, beat:2, tier:"preliminary",
+          blurb:"The slowest band, associated with deep, dreamless sleep. Small trials report modest sleep-quality gains, but results are inconsistent across labs.",
+          pairs:"A consistent bedtime, a cool dark room, and a wind-down routine — the beat is a minor addition to sleep hygiene, not a replacement for it.",
+          sources:[{label:"Chaieb et al. 2015, Front. Psychiatry", url:"https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2015.00070/full"}]},
+        {id:"bb-theta", name:"Theta · 6 Hz", base:150, beat:6, tier:"preliminary",
+          blurb:"Linked to meditative and hypnagogic states. Several small studies pair theta beats with guided relaxation and report subjective calm; sample sizes are generally low.",
+          pairs:"Guided meditation, breath-work, or body-scan practice — most of the supporting studies used the beat as a backdrop to an active technique.",
+          sources:[{label:"Chaieb et al. 2015, Front. Psychiatry", url:"https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2015.00070/full"}]},
+        {id:"bb-alpha", name:"Alpha · 10 Hz", base:200, beat:10, tier:"moderate",
+          blurb:"The best-studied band. Multiple small randomized trials found reduced pre-procedure and situational anxiety versus silence or masked audio.",
+          pairs:"Pre-dental, pre-exam, or pre-procedure anxiety protocols — alongside, never instead of, any prescribed anxiolytic.",
+          sources:[{label:"Padmanabhan et al. 2005, Anaesthesia", url:"https://pubmed.ncbi.nlm.nih.gov/16115248/"},{label:"Garcia-Argibay et al. 2019, Psychol. Res. (meta-analysis)", url:"https://link.springer.com/article/10.1007/s00426-018-1066-8"}]},
+        {id:"bb-beta", name:"Beta · 18 Hz", base:250, beat:18, tier:"preliminary",
+          blurb:"Marketed for focus and alertness. Evidence is thinner and more mixed than the alpha or theta literature, with some studies finding no measurable benefit.",
+          pairs:"Short, timed work sprints — avoid stacking with caffeine or using late in the day.",
+          sources:[{label:"Chaieb et al. 2015, Front. Psychiatry", url:"https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2015.00070/full"}]},
+        {id:"bb-gamma", name:"Gamma · 40 Hz", base:300, beat:40, tier:"preliminary",
+          blurb:"The most scientifically interesting entry: 40 Hz sensory entrainment reduced pathology in mouse models of Alzheimer's disease, and human pilot trials (audio and light “GENUS” stimulation) are underway. This is active research, not an established treatment.",
+          pairs:"Nothing yet, clinically — treat as a research-adjacent curiosity, never a substitute for neurological care.",
+          sources:[{label:"Iaccarino et al. 2016, Nature (mouse)", url:"https://pubmed.ncbi.nlm.nih.gov/27929004/"},{label:"Martorell et al. 2019, Cell (mouse)", url:"https://pubmed.ncbi.nlm.nih.gov/30879788/"},{label:"Chan et al. 2022, PLOS ONE (human pilot)", url:"https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0278412"}]}
+      ]
+    },
+    {
+      key:"isochronic", title:"Isochronic Tones", mode:"isochronic",
+      note:"A single tone pulsed on and off at the target rate. No headphones required; some researchers report it drives EEG entrainment more reliably than binaural beats because the rhythm is heard directly.",
+      items:[
+        {id:"iso-delta", name:"Delta · 2 Hz", base:120, beat:2, tier:"preliminary",
+          blurb:"Same target rate as delta binaural beats, delivered as a pulsed single tone instead of a two-ear illusion. Evidence is similarly limited and mixed.",
+          pairs:"Works on a phone speaker or shared-room audio, unlike binaural beats — useful where headphones aren't practical."},
+        {id:"iso-theta", name:"Theta · 6 Hz", base:180, beat:6, tier:"preliminary",
+          blurb:"Pulsed theta-rate tone used in small studies of relaxation and meditative depth, generally as an adjunct to an active practice rather than on its own.",
+          pairs:"Pair with a seated meditation or progressive muscle relaxation session."},
+        {id:"iso-alpha", name:"Alpha · 10 Hz", base:220, beat:10, tier:"moderate",
+          blurb:"Isochronic alpha stimulation shows EEG entrainment in lab recordings and modest self-reported calm in small trials, echoing the binaural alpha findings.",
+          pairs:"A calming backdrop for light reading or a wind-down break — no headphones needed."},
+        {id:"iso-gamma", name:"Gamma · 40 Hz", base:320, beat:40, tier:"preliminary",
+          blurb:"The audio half of the same 40 Hz sensory-entrainment research studied with light flicker in early Alzheimer's trials. Still exploratory.",
+          pairs:"Same caveat as gamma binaural — a research direction, not a therapy.",
+          sources:[{label:"Martorell et al. 2019, Cell (mouse)", url:"https://pubmed.ncbi.nlm.nih.gov/30879788/"},{label:"Chan et al. 2022, PLOS ONE (human pilot)", url:"https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0278412"}]}
+      ]
+    },
+    {
+      key:"solfeggio", title:"Solfeggio & Tuning Frequencies", mode:"pure",
+      note:"Single sustained pitches. Popular claims trace to a 20th-century reinterpretation of an old numerology system, not to controlled clinical research.",
+      items:[
+        {id:"sol-396", name:"396 Hz", base:396, tier:"traditional",
+          blurb:"Claimed to “release fear and guilt.” No controlled evidence distinguishes this pitch from any other calming tone.",
+          pairs:"Fine as ambient background music; don't treat it as therapy for grief or anxiety."},
+        {id:"sol-417", name:"417 Hz", base:417, tier:"traditional",
+          blurb:"Claimed to “facilitate change.” Same origin story as the rest of the set — no clinical trials support a specific effect.",
+          pairs:"Background listening during journaling or reflection, valued for the ritual rather than the pitch."},
+        {id:"sol-528", name:"528 Hz", base:528, tier:"traditional",
+          blurb:"The most heavily marketed “love” or “DNA repair” frequency. There is no peer-reviewed evidence of a biological repair effect from sound at this pitch.",
+          pairs:"Enjoy it as music; don't substitute it for medical treatment of any kind."},
+        {id:"sol-639", name:"639 Hz", base:639, tier:"traditional",
+          blurb:"Marketed for relationships and connection. As with the rest of the scale, this is a modern narrative layered onto an arbitrary pitch.",
+          pairs:"No specific pairing beyond general relaxation listening."},
+        {id:"sol-741", name:"741 Hz", base:741, tier:"traditional",
+          blurb:"Marketed for “detoxification” and problem-solving — claims with no physiological mechanism or supporting trial data.",
+          pairs:"None with clinical backing; treat as ambient music only."},
+        {id:"sol-852", name:"852 Hz", base:852, tier:"traditional",
+          blurb:"Marketed for “spiritual awakening.” Subjective and unfalsifiable as a claim; no clinical measurement supports it.",
+          pairs:"None with clinical backing; treat as ambient music only."},
+        {id:"sol-963", name:"963 Hz", base:963, tier:"traditional",
+          blurb:"The highest of the popular set, marketed as a “pineal gland” activator. No anatomical or clinical basis has been demonstrated.",
+          pairs:"None with clinical backing; treat as ambient music only."},
+        {id:"tune-432", name:"432 Hz vs. 440 Hz", base:432, tier:"traditional",
+          blurb:"A popular claim holds that 432 Hz is more “natural” or harmonious than the standard 440 Hz concert pitch. A double-blind crossover pilot study found no difference in blood pressure or oxygen saturation between the two, and if anything, tiredness improved slightly more after standard 440 Hz.",
+          pairs:"Purely a matter of taste — swap it in for any music you already enjoy.",
+          sources:[{label:"Calamassi & Pomponi 2019, Explore", url:"https://doi.org/10.1016/j.explore.2019.04.001"}]}
+      ]
+    },
+    {
+      key:"fiveelement", title:"Chinese Five-Element Tones (Wǔxíng)", mode:"pure",
+      note:"The Chinese pentatonic scale mapped onto Traditional Chinese Medicine's five phases, each tied to an organ system and an emotion. Pitches below use a modern reference tuning — the historical Huángzhōng pitch standard actually shifted by dynasty and region, so no single Hz value is “authentic.”",
+      items:[
+        {id:"wx-gong", name:"Gōng 宮 · Earth", base:261.6, tier:"preliminary",
+          blurb:"Tied to the Spleen–Stomach system and to grounding/worry in TCM theory. Chinese-language trials pairing gōng-mode music with digestive or mood outcomes exist, but reviews of this literature note small samples, little blinding, and limited replication outside China.",
+          pairs:"Traditionally paired with dietary therapy and abdominal tuina massage; evidence for the combination itself hasn't been tested rigorously.",
+          sources:[{label:"Five-Element Music Therapy meta-analysis, 2024, ScienceDirect", url:"https://www.sciencedirect.com/science/article/pii/S2405844024026343"}]},
+        {id:"wx-shang", name:"Shāng 商 · Metal", base:293.7, tier:"preliminary",
+          blurb:"Tied to the Lung–Large Intestine system and to grief in TCM theory. Small trials use it alongside breathing exercises for respiratory or grief-related complaints, with the same low-certainty evidence base as the rest of this set.",
+          pairs:"Paired with diaphragmatic breathing practice in most of the source studies.",
+          sources:[{label:"Five-Element Music Therapy meta-analysis, 2024, ScienceDirect", url:"https://www.sciencedirect.com/science/article/pii/S2405844024026343"}]},
+        {id:"wx-jue", name:"Jué 角 · Wood", base:329.6, tier:"preliminary",
+          blurb:"Tied to the Liver–Gallbladder system and to anger in TCM theory. A handful of small trials pair it with hypertension or mood outcomes; effect sizes are inconsistent and rarely replicated.",
+          pairs:"Often combined with stretching or qigong movement rather than used as standalone listening.",
+          sources:[{label:"Five-Element Music Therapy meta-analysis, 2024, ScienceDirect", url:"https://www.sciencedirect.com/science/article/pii/S2405844024026343"}]},
+        {id:"wx-zhi", name:"Zhǐ 徵 · Fire", base:392.0, tier:"preliminary",
+          blurb:"Tied to the Heart–Small Intestine system and to joy in TCM theory. Studied in a few small cardiac-rehab trials for pre-procedure anxiety, similar in design quality to the alpha binaural work but far less replicated.",
+          pairs:"Used in some Chinese cardiac-rehab programs alongside standard relaxation training.",
+          sources:[{label:"Five-Element Music Therapy meta-analysis, 2024, ScienceDirect", url:"https://www.sciencedirect.com/science/article/pii/S2405844024026343"}]},
+        {id:"wx-yu", name:"Yǔ 羽 · Water", base:440.0, tier:"preliminary",
+          blurb:"Tied to the Kidney–Bladder system and to fear in TCM theory. Small trials associate it with fatigue and sleep outcomes; as with the rest of this set, treat findings as suggestive rather than established.",
+          pairs:"Paired with rest and reduced stimulation in the source protocols, similar to delta-band listening.",
+          sources:[{label:"Five-Element Music Therapy meta-analysis, 2024, ScienceDirect", url:"https://www.sciencedirect.com/science/article/pii/S2405844024026343"}]}
+      ]
+    },
+    {
+      key:"buddhist", title:"Buddhist & Himalayan Sound", mode:"pure",
+      note:"Om chanting and Himalayan singing bowls are genuine contemplative practices; the specific tones sold as “their” frequencies mostly are not. These are single sine-tone approximations, not recordings of an actual voice or bowl.",
+      items:[
+        {id:"bud-om", name:"Om · 136.1 Hz", base:136.1, tier:"traditional",
+          blurb:"136.1 Hz comes from Hans Cousto's 1970s “Cosmic Octave” — Earth's orbital year transposed up into the audible range — not from any Buddhist or Hindu source text. That said, a real small fMRI study found actual vocalized Om chanting quieted limbic brain regions, plausibly from the vibration and slow controlled exhale rather than the exact pitch.",
+          pairs:"The evidence favors chanting or humming it yourself over passively listening to a synthesized tone.",
+          sources:[{label:"Kalyani et al. 2011, Int. J. Yoga", url:"https://pubmed.ncbi.nlm.nih.gov/21654968/"}]},
+        {id:"bud-bowl-low", name:"Singing Bowl · Low (Grounding)", base:110, tier:"preliminary",
+          blurb:"A small, uncontrolled study of a guided Tibetan singing-bowl sound meditation found reduced tension, anger, and fatigue afterward — but with no control group and a rich, multi-bowl, overtone-heavy sound, not an isolated sine tone like this one.",
+          pairs:"Best experienced as a longer guided sound-bath session with real bowls or a full recording, not a single pure tone.",
+          sources:[{label:"Goldsby et al. 2017, J. Evid. Based Complementary Altern. Med.", url:"https://pubmed.ncbi.nlm.nih.gov/27694559/"}]},
+        {id:"bud-bowl-mid", name:"Singing Bowl · Mid (Heart)", base:194, tier:"preliminary",
+          blurb:"Same evidence base as the low bowl above: one small pre/post sound-bath study, promising but weakly controlled.",
+          pairs:"Guided meditation or a slow body-scan practice.",
+          sources:[{label:"Goldsby et al. 2017, J. Evid. Based Complementary Altern. Med.", url:"https://pubmed.ncbi.nlm.nih.gov/27694559/"}]},
+        {id:"bud-bowl-high", name:"Singing Bowl · High (Clarity)", base:256, tier:"preliminary",
+          blurb:"Same evidence base as the other bowls — suggestive, not confirmatory. Higher bowl tones are traditionally used to close a session rather than to deepen relaxation.",
+          pairs:"Often used at the end of a meditation sit as a signal to return attention outward.",
+          sources:[{label:"Goldsby et al. 2017, J. Evid. Based Complementary Altern. Med.", url:"https://pubmed.ncbi.nlm.nih.gov/27694559/"}]}
+      ]
+    },
+    {
+      key:"chakra", title:"Chakra Frequencies (Cosmic Octave)", mode:"pure",
+      note:"The popular 7-chakra system comes from Hindu tantric yoga and was later folded into Western “Buddhist-adjacent” wellness branding; Tibetan Buddhist tantra actually uses a different, smaller chakra system. Every Hz value below is Hans Cousto's numerology — planetary orbital periods transposed into audible pitch — not a finding from any contemplative tradition or clinical trial.",
+      items:[
+        {id:"chk-root", name:"Root · 194.18 Hz", base:194.18, tier:"traditional", blurb:"Associated with grounding and survival instinct in yogic chakra theory. No anatomical chakra structure has been identified, and no trial has tested this pitch against a claimed effect.", pairs:"None with clinical backing — ambient/meditative listening only."},
+        {id:"chk-sacral", name:"Sacral · 210.42 Hz", base:210.42, tier:"traditional", blurb:"Associated with creativity and emotion in yogic chakra theory. Same numerological origin and evidence gap as the rest of this set.", pairs:"None with clinical backing — ambient/meditative listening only."},
+        {id:"chk-solar", name:"Solar Plexus · 126.22 Hz", base:126.22, tier:"traditional", blurb:"Associated with willpower and confidence in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."},
+        {id:"chk-heart", name:"Heart · 136.10 Hz", base:136.1, tier:"traditional", blurb:"The same “Om” pitch listed above, here relabeled for the heart chakra — a good example of how these numbers get reused across marketing narratives.", pairs:"None with clinical backing — ambient/meditative listening only."},
+        {id:"chk-throat", name:"Throat · 141.27 Hz", base:141.27, tier:"traditional", blurb:"Associated with communication and self-expression in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."},
+        {id:"chk-third-eye", name:"Third Eye · 221.23 Hz", base:221.23, tier:"traditional", blurb:"Associated with intuition and insight in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."},
+        {id:"chk-crown", name:"Crown · 172.06 Hz", base:172.06, tier:"traditional", blurb:"Associated with spiritual connection in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."}
+      ]
+    },
+    {
+      key:"noise", title:"Ambient Noise", mode:"noise",
+      note:"Continuous broadband sound rather than a musical pitch. The least exotic category and, by a wide margin, the best-supported.",
+      items:[
+        {id:"noise-white", name:"White Noise", tier:"supported",
+          blurb:"Equal energy across all frequencies. Well-supported for masking sudden sound changes — a randomized trial found 80% of newborns fell asleep within five minutes of white noise, versus 25% without it — with mixed evidence for adult sleep quality specifically.",
+          pairs:"Sound-masking in shared or noisy spaces, and steady background for focus work.",
+          sources:[{label:"Spencer et al. 1990, Arch. Dis. Child.", url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1792397/"}]},
+        {id:"noise-pink", name:"Pink Noise", tier:"supported",
+          blurb:"Energy falls off with frequency, so it sounds softer and deeper than white noise. A sleep-lab trial that timed pink-noise pulses to participants' own slow brain waves found deeper slow-wave sleep and better next-day memory recall in older adults versus a silent night.",
+          pairs:"A nightly bedtime routine with consistent sleep and wake times — the noise supports the schedule, it doesn't replace it.",
+          sources:[{label:"Papalambros et al. 2017, Front. Hum. Neurosci.", url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5340797/"}]},
+        {id:"noise-brown", name:"Brown Noise", tier:"supported",
+          blurb:"An even steeper low-frequency emphasis, popular for focus and tinnitus masking. Acoustically well understood, though fewer dedicated clinical sleep trials exist than for pink noise.",
+          pairs:"Open-plan focus work and tinnitus masking during the day."}
+      ]
+    }
+  ];
+
+  /* ---------------- rendering ---------------- */
+
+  const legendEl = document.getElementById("legend");
+  Object.values(TIERS).forEach(t=>{
+    const item = document.createElement("span");
+    item.className = "legend-item";
+    item.innerHTML = `<span class="dot" style="background:${t.color}"></span>${t.label}`;
+    legendEl.appendChild(item);
+  });
+
+  function freqLabel(item, mode){
+    if(mode==="binaural" || mode==="isochronic"){
+      return `${item.base} Hz ↔ ${item.base+item.beat} Hz  (Δ ${item.beat} Hz)`;
+    }
+    if(mode==="pure") return `${item.base} Hz`;
+    return "broadband";
+  }
+
+  const catsEl = document.getElementById("categories");
+  const PRESET_INDEX = {}; // id -> { cfg, tier, mode }
+
+  PRESETS.forEach(cat=>{
+    const section = document.createElement("section");
+    section.className = "category";
+    section.innerHTML = `
+      <div class="cat-head">
+        <h2>${cat.title}</h2>
+        <div class="cat-note">${cat.note}</div>
+      </div>
+    `;
+    const grid = document.createElement("div");
+    grid.className = "card-grid";
+    cat.items.forEach(item=>{
+      const tier = TIERS[item.tier];
+      const cfg = {
+        mode: cat.mode,
+        base: item.base,
+        beat: item.beat,
+        noiseType: cat.mode==="noise" ? item.id.replace("noise-","") : undefined,
+        waveform: "sine",
+        label: item.name,
+        headphones: cat.mode==="binaural"
+      };
+      PRESET_INDEX[item.id] = { cfg, tier: item.tier, mode: cat.mode };
+
+      const card = document.createElement("article");
+      card.className = "card";
+      card.id = "card-" + item.id;
+      card.innerHTML = `
+        <span class="chip" style="color:${tier.color}"><span class="dot" style="background:${tier.color}"></span>${tier.label}</span>
+        <h3>${item.name}</h3>
+        <div class="freq">${freqLabel(item, cat.mode)}</div>
+        <p class="blurb">${item.blurb}</p>
+        <p class="pairs"><b>Pairs well with:</b> ${item.pairs}</p>
+        ${item.sources ? `<p class="sources"><b>Source${item.sources.length>1?"s":""}:</b> ${item.sources.map(s=>`<a href="${s.url}" target="_blank" rel="noopener">${s.label}</a>`).join(" · ")}</p>` : ""}
+        <div class="card-foot">
+          <button class="load-btn" type="button"><span class="tri"></span>Play</button>
+        </div>
+      `;
+      card.querySelector(".load-btn").addEventListener("click", ()=> playConfig(cfg, item.id));
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    catsEl.appendChild(section);
+  });
+
+  /* ---------------- custom lab ---------------- */
+
+  const labSection = document.createElement("section");
+  labSection.className = "category";
+  labSection.innerHTML = `
+    <div class="cat-head">
+      <h2>Build Your Own</h2>
+      <div class="cat-note">Dial in any base pitch and beat rate. Same evidence caveats as the matching preset category above.</div>
+    </div>
+    <div class="lab-panel">
+      <div class="field">
+        <label>Mode</label>
+        <div class="mode-toggle" id="labMode">
+          <button data-mode="binaural" class="active">Binaural</button>
+          <button data-mode="isochronic">Isochronic</button>
+          <button data-mode="pure">Pure Tone</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Base frequency</label>
+        <div class="row">
+          <input type="range" id="labBase" min="40" max="800" step="1" value="200">
+          <output id="labBaseOut">200 Hz</output>
+        </div>
+      </div>
+      <div class="field" id="labBeatField">
+        <label>Beat frequency</label>
+        <div class="row">
+          <input type="range" id="labBeat" min="0.5" max="40" step="0.5" value="10">
+          <output id="labBeatOut">10 Hz</output>
+        </div>
+      </div>
+      <div class="field lab-actions">
+        <button class="play-btn" id="labPlay"><span class="tri"></span>Play custom mix</button>
+      </div>
+    </div>
+  `;
+  catsEl.appendChild(labSection);
+
+  let labMode = "binaural";
+  const labModeWrap = labSection.querySelector("#labMode");
+  labModeWrap.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button[data-mode]");
+    if(!btn) return;
+    labMode = btn.dataset.mode;
+    [...labModeWrap.children].forEach(b=>b.classList.toggle("active", b===btn));
+    labSection.querySelector("#labBeatField").style.display = labMode==="pure" ? "none" : "flex";
+  });
+
+  const labBase = labSection.querySelector("#labBase");
+  const labBaseOut = labSection.querySelector("#labBaseOut");
+  labBase.addEventListener("input", ()=> labBaseOut.textContent = labBase.value + " Hz");
+
+  const labBeat = labSection.querySelector("#labBeat");
+  const labBeatOut = labSection.querySelector("#labBeatOut");
+  labBeat.addEventListener("input", ()=> labBeatOut.textContent = labBeat.value + " Hz");
+
+  labSection.querySelector("#labPlay").addEventListener("click", ()=>{
+    playConfig({
+      mode: labMode,
+      base: Number(labBase.value),
+      beat: Number(labBeat.value),
+      waveform: "sine",
+      label: "Custom · " + labMode,
+      headphones: labMode==="binaural"
+    }, "custom");
+  });
+
+  /* ---------------- audio engine ---------------- */
+
+  let audioCtx=null, masterGain=null, analyser=null, currentNodes=[], rafId=null;
+  let isPlaying=false, activeId=null;
+  let timerTimeout=null, timerFadeTimeout=null, timerInterval=null;
+
+  const volume = document.getElementById("volume");
+  const volReadout = document.getElementById("volReadout");
+  const stopBtn = document.getElementById("stopBtn");
+  const timerSelect = document.getElementById("timerSelect");
+  const timerLabel = document.getElementById("timerLabel");
+  const npName = document.getElementById("npName");
+  const npFreqs = document.getElementById("npFreqs");
+  const npHp = document.getElementById("npHp");
+
+  const canvas = document.getElementById("scope");
+  const cctx = canvas.getContext("2d");
+  function resizeCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    cctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+  drawIdle();
+
+  function ensureAudio(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0;
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      masterGain.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+    if(audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function currentGainTarget(){
+    const MAX = 0.32;
+    return MAX * (Number(volume.value)/100);
+  }
+
+  volume.addEventListener("input", ()=>{
+    volReadout.textContent = volume.value + "%";
+    if(isPlaying && audioCtx){
+      masterGain.gain.setTargetAtTime(currentGainTarget(), audioCtx.currentTime, 0.05);
+    }
+  });
+
+  function rampMasterTo(value, time){
+    const now = audioCtx.currentTime;
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+    masterGain.gain.linearRampToValueAtTime(value, now+time);
+  }
+
+  function clearAllTimers(){
+    if(timerTimeout) clearTimeout(timerTimeout);
+    if(timerFadeTimeout) clearTimeout(timerFadeTimeout);
+    if(timerInterval) clearInterval(timerInterval);
+    timerTimeout = timerFadeTimeout = timerInterval = null;
+    timerLabel.textContent = "";
+  }
+
+  function formatTime(s){
+    const m = Math.floor(s/60), ss = s%60;
+    return String(m).padStart(2,"0") + ":" + String(ss).padStart(2,"0");
+  }
+
+  function startTimerIfNeeded(){
+    const mins = Number(timerSelect.value);
+    if(!mins) return;
+    let remaining = mins*60;
+    timerLabel.textContent = formatTime(remaining);
+    timerInterval = setInterval(()=>{
+      remaining--;
+      timerLabel.textContent = formatTime(Math.max(remaining,0));
+      if(remaining<=0) clearInterval(timerInterval);
+    },1000);
+    timerFadeTimeout = setTimeout(()=>{ if(audioCtx) rampMasterTo(0.0001, 4); }, Math.max(mins*60000-4000,0));
+    timerTimeout = setTimeout(()=>{ stopPlayback(true); }, mins*60000+200);
+  }
+
+  function makeNoiseBuffer(type){
+    const duration = 4, sr = audioCtx.sampleRate;
+    const buf = audioCtx.createBuffer(1, sr*duration, sr);
+    const data = buf.getChannelData(0);
+    if(type === "white"){
+      for(let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
+    } else if(type === "pink"){
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for(let i=0;i<data.length;i++){
+        const white = Math.random()*2-1;
+        b0 = 0.99886*b0 + white*0.0555179;
+        b1 = 0.99332*b1 + white*0.0750759;
+        b2 = 0.96900*b2 + white*0.1538520;
+        b3 = 0.86650*b3 + white*0.3104856;
+        b4 = 0.55000*b4 + white*0.5329522;
+        b5 = -0.7616*b5 - white*0.0168980;
+        let pink = b0+b1+b2+b3+b4+b5+b6+white*0.5362;
+        b6 = white*0.115926;
+        data[i] = pink * 0.11;
+      }
+    } else {
+      let lastOut = 0;
+      for(let i=0;i<data.length;i++){
+        const white = Math.random()*2-1;
+        lastOut = (lastOut + 0.02*white) / 1.02;
+        data[i] = lastOut * 3.5;
+      }
+    }
+    return buf;
+  }
+
+  function buildNodes(cfg){
+    const now = audioCtx.currentTime;
+    if(cfg.mode === "binaural"){
+      const oscL = audioCtx.createOscillator(); oscL.type="sine"; oscL.frequency.value=cfg.base;
+      const oscR = audioCtx.createOscillator(); oscR.type="sine"; oscR.frequency.value=cfg.base+cfg.beat;
+      const panL = audioCtx.createStereoPanner(); panL.pan.value=-1;
+      const panR = audioCtx.createStereoPanner(); panR.pan.value=1;
+      oscL.connect(panL).connect(masterGain);
+      oscR.connect(panR).connect(masterGain);
+      oscL.start(now); oscR.start(now);
+      currentNodes = [oscL, oscR];
+    } else if(cfg.mode === "isochronic"){
+      const carrier = audioCtx.createOscillator(); carrier.type = cfg.waveform||"sine"; carrier.frequency.value = cfg.base;
+      const modGain = audioCtx.createGain(); modGain.gain.value = 0;
+      const lfo = audioCtx.createOscillator(); lfo.type="sine"; lfo.frequency.value = cfg.beat;
+      const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 0.5;
+      const offset = audioCtx.createConstantSource(); offset.offset.value = 0.5;
+      lfo.connect(lfoGain); lfoGain.connect(modGain.gain); offset.connect(modGain.gain);
+      carrier.connect(modGain).connect(masterGain);
+      carrier.start(now); lfo.start(now); offset.start(now);
+      currentNodes = [carrier, lfo, offset];
+    } else if(cfg.mode === "pure"){
+      const osc = audioCtx.createOscillator(); osc.type = cfg.waveform||"sine"; osc.frequency.value = cfg.base;
+      osc.connect(masterGain); osc.start(now);
+      currentNodes = [osc];
+    } else if(cfg.mode === "noise"){
+      const buf = makeNoiseBuffer(cfg.noiseType);
+      const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+      src.connect(masterGain); src.start(now);
+      currentNodes = [src];
+    }
+  }
+
+  function updateNowPlaying(cfg){
+    npName.textContent = cfg.label;
+    npFreqs.textContent = cfg.mode==="noise" ? "broadband" :
+      (cfg.mode==="pure" ? cfg.base + " Hz" : `${cfg.base} Hz ↔ ${cfg.base+cfg.beat} Hz`);
+    npHp.hidden = !cfg.headphones;
+  }
+
+  function setActiveCard(id){
+    document.querySelectorAll(".card.is-active, .mp-item.is-active").forEach(c=>c.classList.remove("is-active"));
+    if(id){
+      const card = document.getElementById("card-"+id);
+      if(card) card.classList.add("is-active");
+      const mp = document.getElementById("mp-"+id);
+      if(mp) mp.classList.add("is-active");
+    }
+  }
+
+  /* ---------------- most played sidebar ---------------- */
+
+  const PLAYCOUNT_KEY = "freqlab.playcounts.v1";
+  const mpList = document.getElementById("mpList");
+  const mpEmpty = document.getElementById("mpEmpty");
+
+  function loadPlayCounts(){
+    try{
+      const raw = localStorage.getItem(PLAYCOUNT_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+
+  function renderMostPlayed(){
+    const counts = loadPlayCounts();
+    const top = Object.entries(counts)
+      .filter(([id])=> PRESET_INDEX[id])
+      .sort((a,b)=> b[1]-a[1])
+      .slice(0,3);
+    mpList.innerHTML = "";
+    mpEmpty.hidden = top.length > 0;
+    top.forEach(([id, count], idx)=>{
+      const entry = PRESET_INDEX[id];
+      const tier = TIERS[entry.tier];
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "mp-" + id;
+      btn.className = "mp-item" + (id === activeId ? " is-active" : "");
+      btn.innerHTML = `
+        <span class="mp-rank">0${idx+1}</span>
+        <span class="dot" style="background:${tier.color}"></span>
+        <span class="mp-body">
+          <span class="mp-name">${entry.cfg.label}</span>
+          <span class="mp-freq">${freqLabel(entry.cfg, entry.mode)}</span>
+        </span>
+        <span class="mp-count">×${count}</span>
+      `;
+      btn.addEventListener("click", ()=> playConfig(entry.cfg, id));
+      mpList.appendChild(btn);
+    });
+  }
+
+  function recordPlay(id){
+    if(!id || !PRESET_INDEX[id]) return;
+    const counts = loadPlayCounts();
+    counts[id] = (counts[id] || 0) + 1;
+    try{ localStorage.setItem(PLAYCOUNT_KEY, JSON.stringify(counts)); }catch(e){}
+    renderMostPlayed();
+  }
+
+  renderMostPlayed();
+
+  function updateTransportUI(){
+    stopBtn.disabled = !isPlaying;
+  }
+
+  function playConfig(cfg, id){
+    ensureAudio();
+    const hadPrev = currentNodes.length > 0;
+    if(hadPrev){
+      const nodes = currentNodes; currentNodes = [];
+      const now = audioCtx.currentTime;
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+      masterGain.gain.linearRampToValueAtTime(0.0001, now+0.15);
+      setTimeout(()=>nodes.forEach(n=>{ try{n.stop&&n.stop();}catch(e){} try{n.disconnect();}catch(e){} }), 200);
+    }
+    clearAllTimers();
+    setTimeout(()=>{
+      buildNodes(cfg);
+      rampMasterTo(currentGainTarget(), 0.5);
+      isPlaying = true;
+      activeId = id;
+      updateNowPlaying(cfg);
+      updateTransportUI();
+      startTimerIfNeeded();
+      startVisualizer();
+      recordPlay(id);
+      setActiveCard(id);
+    }, hadPrev ? 180 : 0);
+  }
+
+  function stopPlayback(hard){
+    if(!audioCtx) return;
+    clearAllTimers();
+    const nodes = currentNodes; currentNodes = [];
+    isPlaying = false;
+    updateTransportUI();
+    rampMasterTo(0.0001, hard ? 0.05 : 0.4);
+    setTimeout(()=>{
+      nodes.forEach(n=>{ try{n.stop&&n.stop();}catch(e){} try{n.disconnect();}catch(e){} });
+    }, hard ? 60 : 450);
+    cancelAnimationFrame(rafId);
+    drawIdle();
+    setActiveCard(null);
+    npName.textContent = "Silence";
+    npFreqs.textContent = "— Hz";
+    npHp.hidden = true;
+  }
+
+  stopBtn.addEventListener("click", ()=> stopPlayback(false));
+
+  function startVisualizer(){
+    cancelAnimationFrame(rafId);
+    const data = new Uint8Array(analyser.fftSize);
+    function draw(){
+      rafId = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(data);
+      drawWave(data);
+    }
+    draw();
+  }
+
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue ?
+    () => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#0f8a86"
+    : () => "#0f8a86";
+
+  function drawGrid(w,h){
+    cctx.strokeStyle = "rgba(128,128,128,0.18)";
+    cctx.lineWidth = 1;
+    cctx.beginPath();
+    for(let x=0;x<=w;x+=w/8){ cctx.moveTo(x,0); cctx.lineTo(x,h); }
+    for(let y=0;y<=h;y+=h/3){ cctx.moveTo(0,y); cctx.lineTo(w,y); }
+    cctx.stroke();
+  }
+
+  function drawWave(data){
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    cctx.clearRect(0,0,w,h);
+    drawGrid(w,h);
+    cctx.lineWidth = 2;
+    cctx.strokeStyle = accentColor();
+    cctx.beginPath();
+    const slice = w / data.length;
+    for(let i=0;i<data.length;i++){
+      const v = data[i]/128.0;
+      const y = (v*h)/2;
+      const x = i*slice;
+      if(i===0) cctx.moveTo(x,y); else cctx.lineTo(x,y);
+    }
+    cctx.stroke();
+  }
+
+  function drawIdle(){
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    cctx.clearRect(0,0,w,h);
+    drawGrid(w,h);
+    cctx.lineWidth = 2;
+    cctx.strokeStyle = "rgba(128,128,128,0.4)";
+    cctx.beginPath();
+    cctx.moveTo(0,h/2); cctx.lineTo(w,h/2);
+    cctx.stroke();
+  }
+
+})();
+</script>
+<script>
+(function(){
+  var CURRENT_VERSION = "20260905181258";
+  function showBanner(){
+    if(document.getElementById('update-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'update-bar';
+    bar.innerHTML = '<span>A newer version of this page is available.</span>'
+      + '<button type="button" id="update-now">Update</button>'
+      + '<button type="button" id="update-later">Later</button>';
+    document.body.appendChild(bar);
+    document.getElementById('update-later').addEventListener('click', function(){ bar.remove(); });
+    document.getElementById('update-now').addEventListener('click', function(){
+      fetch('./index.html?_=' + Date.now(), {cache:'no-store'})
+        .then(function(r){ return r.text(); })
+        .then(function(html){
+          document.open();
+          document.write(html);
+          document.close();
+        })
+        .catch(function(){});
+    });
+  }
+  fetch('./version.json?_=' + Date.now(), {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.version && data.version !== CURRENT_VERSION) showBanner();
+    })
+    .catch(function(){});
+})();
+</script>
+</body>
+</html>
