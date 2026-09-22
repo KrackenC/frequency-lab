@@ -384,7 +384,7 @@
   <section class="intro">
     <div class="rule"></div>
     <div>
-      <p>This tool plays eight families of sound, and they do not share an evidence base. Alpha and theta binaural beats have real, if modest, randomized-trial support for state anxiety and relaxation. Forty-hertz gamma stimulation is a live, unresolved research question in neurodegeneration — promising in animal models and early human trials, proven as a treatment in neither. Traditional Chinese five-element tones and Himalayan singing-bowl meditation have a genuine small clinical literature behind the practices, though not behind the specific pitches. Solfeggio tones, 432&nbsp;Hz tuning, and the popular chakra-frequency set rest on twentieth-century numerology, not clinical data; any calm they produce is the calm of any pleasant tone. Pink and brown noise are the least exotic and the best-supported entries here, backed by real sleep-lab data.</p>
+      <p>This tool plays eight families of sound, and they do not share an evidence base. Alpha and theta binaural beats have real, if modest, randomized-trial support for state anxiety and relaxation. Forty-hertz gamma stimulation is a live, unresolved research question in neurodegeneration — promising in animal models and early human trials, proven as a treatment in neither. Traditional Chinese five-element tones and Himalayan singing-bowl meditation have a genuine small clinical literature behind the practices, though not behind the specific pitches. Solfeggio tones, 432&nbsp;Hz tuning, and the popular chakra-frequency set rest on twentieth-century numerology, not clinical data; any calm they produce is the calm of any pleasant tone. The Schumann resonance is real physics — Earth's ionosphere genuinely oscillates near 7.83&nbsp;Hz — but that's a different claim from an audible tone at that pitch doing anything for you. Pink and brown noise are the least exotic and the best-supported entries here, backed by real sleep-lab data.</p>
       <p>Check the tier badge on a card before you trust its pitch. None of this replaces diagnosis or treatment from a clinician.</p>
       <div class="byline">Evidence tiers reflect published research quality, not marketing claims.</div>
     </div>
@@ -481,6 +481,12 @@
       key:"solfeggio", title:"Solfeggio & Tuning Frequencies", mode:"pure",
       note:"Single sustained pitches. Popular claims trace to a 20th-century reinterpretation of an old numerology system, not to controlled clinical research.",
       items:[
+        {id:"sol-174", name:"174 Hz", base:174, tier:"traditional",
+          blurb:"Claimed to be a natural “anesthetic,” easing physical pain. It's the lowest of the popularly cited set and, like the rest, has no controlled trial behind the specific number.",
+          pairs:"None with clinical backing; a low, sub-bass drone works fine as background music."},
+        {id:"sol-285", name:"285 Hz", base:285, tier:"traditional",
+          blurb:"Claimed to support “tissue and cellular healing.” There is no mechanism by which an audible tone would influence healing at the cellular level, and no trial has tested one.",
+          pairs:"None with clinical backing; treat as ambient music only."},
         {id:"sol-396", name:"396 Hz", base:396, tier:"traditional",
           blurb:"Claimed to “release fear and guilt.” No controlled evidence distinguishes this pitch from any other calming tone.",
           pairs:"Fine as ambient background music; don't treat it as therapy for grief or anxiety."},
@@ -542,6 +548,10 @@
           blurb:"136.1 Hz comes from Hans Cousto's 1970s “Cosmic Octave” — Earth's orbital year transposed up into the audible range — not from any Buddhist or Hindu source text. That said, a real small fMRI study found actual vocalized Om chanting quieted limbic brain regions, plausibly from the vibration and slow controlled exhale rather than the exact pitch.",
           pairs:"The evidence favors chanting or humming it yourself over passively listening to a synthesized tone.",
           sources:[{label:"Kalyani et al. 2011, Int. J. Yoga", url:"https://pubmed.ncbi.nlm.nih.gov/21654968/"}]},
+        {id:"bud-temple", name:"Temple Tone · 110 Hz", base:110, tier:"preliminary",
+          blurb:"A small UCLA pilot study found that 110 Hz specifically — unlike 90 Hz or 130 Hz — shifted regional brain activity toward a pattern the researchers linked to emotional processing, and noted that stone chambers at ancient ritual sites (including Maltese temples) happen to resonate near this same frequency. Interesting and narrow: one small study, healthy volunteers, no clinical outcome measured.",
+          pairs:"A curiosity to sit with during quiet reflection, not a validated technique.",
+          sources:[{label:"Cook et al. 2008, Time and Mind", url:"https://www.researchgate.net/publication/233638157_Ancient_Architectural_Acoustic_Resonance_Patterns_and_Regional_Brain_Activity"}]},
         {id:"bud-bowl-low", name:"Singing Bowl · Low (Grounding)", base:110, tier:"preliminary",
           blurb:"A small, uncontrolled study of a guided Tibetan singing-bowl sound meditation found reduced tension, anger, and fatigue afterward — but with no control group and a rich, multi-bowl, overtone-heavy sound, not an isolated sine tone like this one.",
           pairs:"Best experienced as a longer guided sound-bath session with real bowls or a full recording, not a single pure tone.",
@@ -567,6 +577,16 @@
         {id:"chk-throat", name:"Throat · 141.27 Hz", base:141.27, tier:"traditional", blurb:"Associated with communication and self-expression in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."},
         {id:"chk-third-eye", name:"Third Eye · 221.23 Hz", base:221.23, tier:"traditional", blurb:"Associated with intuition and insight in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."},
         {id:"chk-crown", name:"Crown · 172.06 Hz", base:172.06, tier:"traditional", blurb:"Associated with spiritual connection in yogic chakra theory. No supporting clinical evidence exists for this specific pitch.", pairs:"None with clinical backing — ambient/meditative listening only."}
+      ]
+    },
+    {
+      key:"schumann", title:"Schumann Resonance", mode:"pure",
+      note:"Earth's ionosphere really does resonate at these frequencies — that part is settled physics, not numerology. What's unproven is that listening to an audible tone at this pitch reproduces the effect of being exposed to it.",
+      items:[
+        {id:"sch-783", name:"Fundamental · 7.83 Hz", base:7.83, tier:"traditional",
+          blurb:"The Schumann resonance is real: a standing electromagnetic wave that circles the Earth in the cavity between the ground and the ionosphere, first measured in 1954. But it's an electromagnetic field, not a sound wave — and at 7.83 Hz it's also below or right at the bottom edge of human hearing, so most speakers and headphones will barely reproduce it as a felt pulse rather than an audible pitch. The one concrete study we could verify tested actual low-level electromagnetic field exposure (not audio) on jump performance in a small group of teenage athletes — narrow, unrelated to relaxation or focus, and not a substitute for the audio version sold as “grounding” or “Earth frequency” tracks.",
+          pairs:"None with clinical backing for the audio version specifically. If anything, time outdoors is the closest thing to the real exposure being described.",
+          sources:[{label:"Colegio Andrés Escobar pilot study, 2025, Cureus (EMF, not audio)", url:"https://pmc.ncbi.nlm.nih.gov/articles/PMC12514744/"}]}
       ]
     },
     {
@@ -1254,7 +1274,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20260905200351";
+  var CURRENT_VERSION = "20260922225642";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
