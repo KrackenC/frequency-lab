@@ -174,6 +174,7 @@
   }
   .mode-toggle button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .lab-actions{ display:flex; align-items:flex-end; }
+  .adaptive-suggest{ font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:8px; }
 
   /* ---------- loop playlist ---------- */
   .loop-slots{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:16px; }
@@ -645,6 +646,7 @@
     }
     if(mode==="pure") return `${item.base} Hz`;
     if(mode==="nature") return "ambient";
+    if(mode==="adaptive") return "generative · 440 Hz";
     return "broadband";
   }
 
@@ -768,6 +770,72 @@
       label: "Custom · " + labMode,
       headphones: labMode==="binaural"
     }, "custom");
+  });
+
+  /* ---------------- adaptive ambience ---------------- */
+
+  const ADAPTIVE_SCALES = {
+    focus: [261.63, 293.66, 329.63, 392.00, 440.00],
+    relax: [220.00, 246.94, 261.63, 293.66, 329.63],
+    sleep: [130.81, 146.83, 164.81, 196.00, 220.00]
+  };
+
+  function suggestedAdaptiveMode(){
+    const h = new Date().getHours();
+    if(h >= 22 || h < 6) return "sleep";
+    if(h >= 18) return "relax";
+    return "focus";
+  }
+
+  const adaptiveSection = document.createElement("section");
+  adaptiveSection.className = "category";
+  adaptiveSection.innerHTML = `
+    <div class="cat-head">
+      <h2>Adaptive Ambience</h2>
+      <div class="cat-note">A simplified, honest take on what apps like Endel do — generative, non-repeating ambient sound instead of a fixed track, tuned to standard 440&nbsp;Hz, built from colored noise plus a slowly evolving pad layer that never loops the same way twice. This is our own from-scratch implementation of the general idea, not Endel's proprietary algorithm, brand, or research — the evidence for that specific product doesn't transfer to this one.</div>
+    </div>
+    <div class="lab-panel">
+      <div class="field">
+        <label>Mode</label>
+        <div class="mode-toggle" id="adaptiveModeToggle">
+          <button data-mode="focus">Focus</button>
+          <button data-mode="relax">Relax</button>
+          <button data-mode="sleep">Sleep</button>
+        </div>
+        <div class="adaptive-suggest" id="adaptiveSuggest"></div>
+      </div>
+      <div class="field lab-actions">
+        <button class="play-btn" id="adaptivePlayBtn"><span class="tri"></span>Play Adaptive Ambience</button>
+      </div>
+    </div>
+  `;
+  catsEl.appendChild(adaptiveSection);
+
+  let adaptiveMode = suggestedAdaptiveMode();
+  const adaptiveModeToggle = adaptiveSection.querySelector("#adaptiveModeToggle");
+  const adaptiveSuggestEl = adaptiveSection.querySelector("#adaptiveSuggest");
+  const MODE_LABEL = { focus:"Focus", relax:"Relax", sleep:"Sleep" };
+
+  function renderAdaptiveMode(){
+    [...adaptiveModeToggle.children].forEach(b=> b.classList.toggle("active", b.dataset.mode===adaptiveMode));
+    adaptiveSuggestEl.textContent = `Based on the time of day, ${MODE_LABEL[suggestedAdaptiveMode()]} is a reasonable starting point — pick whichever you actually want.`;
+  }
+  renderAdaptiveMode();
+
+  adaptiveModeToggle.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button[data-mode]");
+    if(!btn) return;
+    adaptiveMode = btn.dataset.mode;
+    renderAdaptiveMode();
+  });
+
+  adaptiveSection.querySelector("#adaptivePlayBtn").addEventListener("click", ()=>{
+    playConfig({
+      mode: "adaptive",
+      adaptiveMode: adaptiveMode,
+      label: "Adaptive · " + MODE_LABEL[adaptiveMode],
+      headphones: false
+    }, "adaptive-" + adaptiveMode);
   });
 
   /* ---------------- loop playlist ---------------- */
@@ -975,6 +1043,7 @@
   let isPlaying=false, activeId=null;
   let timerTimeout=null, timerFadeTimeout=null, timerInterval=null;
   let natureChirpTimeout=null;
+  let adaptivePadTimeout=null;
 
   const volume = document.getElementById("volume");
   const volReadout = document.getElementById("volReadout");
@@ -1119,7 +1188,53 @@
       currentNodes = [src];
     } else if(cfg.mode === "nature"){
       buildNatureNodes(cfg, now);
+    } else if(cfg.mode === "adaptive"){
+      buildAdaptiveNodes(cfg, now);
     }
+  }
+
+  function buildAdaptiveNodes(cfg, now){
+    const mode = cfg.adaptiveMode || "relax";
+    const noiseType = mode === "sleep" ? "brown" : "pink";
+    const buf = makeNoiseBuffer(noiseType);
+    const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const filter = audioCtx.createBiquadFilter(); filter.type = "lowpass";
+    filter.frequency.value = mode === "focus" ? 2200 : mode === "relax" ? 1200 : 700;
+    const bed = audioCtx.createGain();
+    bed.gain.value = mode === "focus" ? 0.16 : mode === "relax" ? 0.20 : 0.24;
+    src.connect(filter).connect(bed).connect(masterGain);
+    src.start(now);
+    currentNodes = [src];
+    scheduleAdaptivePad(mode);
+  }
+
+  function scheduleAdaptivePad(mode){
+    playPadNote(mode);
+    const delay = mode === "focus" ? 3000 + Math.random()*3000
+                : mode === "relax" ? 5000 + Math.random()*4000
+                : 7000 + Math.random()*5000;
+    adaptivePadTimeout = setTimeout(()=> scheduleAdaptivePad(mode), delay);
+  }
+
+  function playPadNote(mode){
+    if(!audioCtx) return;
+    const scale = ADAPTIVE_SCALES[mode] || ADAPTIVE_SCALES.relax;
+    const freq = scale[Math.floor(Math.random()*scale.length)];
+    const now = audioCtx.currentTime;
+    const dur = mode === "focus" ? 3.5 : mode === "relax" ? 5.5 : 8.5;
+    [1, 2].forEach((harmonic, idx)=>{
+      const osc = audioCtx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq * harmonic;
+      const g = audioCtx.createGain();
+      const peak = idx === 0 ? 0.09 : 0.03;
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(peak, now + dur*0.3);
+      g.gain.linearRampToValueAtTime(0, now + dur);
+      osc.connect(g).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + dur + 0.1);
+    });
   }
 
   function buildNatureNodes(cfg, now){
@@ -1199,7 +1314,7 @@
 
   function updateNowPlaying(cfg){
     npName.textContent = cfg.label;
-    npFreqs.textContent = (cfg.mode==="noise" || cfg.mode==="nature") ? freqLabel(cfg, cfg.mode) :
+    npFreqs.textContent = (cfg.mode==="noise" || cfg.mode==="nature" || cfg.mode==="adaptive") ? freqLabel(cfg, cfg.mode) :
       (cfg.mode==="pure" ? cfg.base + " Hz" : `${cfg.base} Hz ↔ ${cfg.base+cfg.beat} Hz`);
     npHp.hidden = !cfg.headphones;
   }
@@ -1274,6 +1389,7 @@
     opts = opts || {};
     if(!opts.fromLoop) cancelLoop();
     if(natureChirpTimeout){ clearTimeout(natureChirpTimeout); natureChirpTimeout = null; }
+    if(adaptivePadTimeout){ clearTimeout(adaptivePadTimeout); adaptivePadTimeout = null; }
     ensureAudio();
     const hadPrev = currentNodes.length > 0;
     if(hadPrev){
@@ -1302,6 +1418,7 @@
   function stopPlayback(hard){
     cancelLoop();
     if(natureChirpTimeout){ clearTimeout(natureChirpTimeout); natureChirpTimeout = null; }
+    if(adaptivePadTimeout){ clearTimeout(adaptivePadTimeout); adaptivePadTimeout = null; }
     if(!audioCtx) return;
     clearAllTimers();
     const nodes = currentNodes; currentNodes = [];
@@ -1377,7 +1494,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20260923004940";
+  var CURRENT_VERSION = "20260923014942";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
