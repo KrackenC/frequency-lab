@@ -650,19 +650,34 @@
       key:"nature", title:"Nature Sounds", mode:"nature",
       note:"Synthesized in real time from filtered noise, not recordings — an approximation of the real thing, not a substitute for it. The strongest evidence here is for natural soundscapes generally, not any single one of these in isolation.",
       items:[
-        {id:"nature-rain", name:"Rain", tier:"supported",
-          blurb:"An MRI study comparing natural to artificial soundscapes found natural sound shifted listeners toward parasympathetic (“rest and digest”) nervous system activity and outward-directed attention, while artificial sound pushed the opposite way — a pattern the researchers linked to anxiety and depression. Rain was one of the natural sounds tested.",
-          pairs:"Focus work, falling asleep, or masking sudden household noise.",
+        {id:"nature-rain-light", name:"Light Rain", tier:"supported", natureType:"rain", natureVariant:"light",
+          blurb:"A gentle, higher-pitched patter. An MRI study comparing natural to artificial soundscapes found natural sound shifted listeners toward parasympathetic (“rest and digest”) nervous system activity and outward-directed attention, while artificial sound pushed the opposite way — a pattern the researchers linked to anxiety and depression. Rain was one of the natural sounds tested; intensity wasn't a variable they isolated, so treat Light vs. Heavy here as a stylistic choice, not a separately validated one.",
+          pairs:"Quiet focus work or falling asleep, when you want the texture without it pressing down on the room.",
           sources:[{label:"Gould van Praag et al. 2017, Sci. Rep.", url:"https://www.nature.com/articles/srep45273"}]},
-        {id:"nature-ocean", name:"Ocean Waves", tier:"supported",
+        {id:"nature-rain-heavy", name:"Heavy Rain", tier:"supported", natureType:"rain", natureVariant:"heavy",
+          blurb:"A denser downpour with a soft low-frequency rumble layered underneath. Same evidence base as Light Rain — the natural-vs-artificial soundscape research didn't test intensity as its own condition, only the broader category of natural sound.",
+          pairs:"Masking louder environmental noise, or as a fuller backdrop for sleep.",
+          sources:[{label:"Gould van Praag et al. 2017, Sci. Rep.", url:"https://www.nature.com/articles/srep45273"}]},
+        {id:"nature-ocean-calm", name:"Calm Shore", tier:"supported", natureType:"ocean", natureVariant:"calm",
           blurb:"Same evidence base as rain above — broadband natural sound with a slow, rhythmic amplitude swell rather than a constant hiss. The swell itself hasn't been tested as the active ingredient; it's simply what real waves sound like.",
           pairs:"Wind-down routines and slow breathing exercises paced against the swell.",
           sources:[{label:"Gould van Praag et al. 2017, Sci. Rep.", url:"https://www.nature.com/articles/srep45273"}]},
-        {id:"nature-wind", name:"Wind", tier:"preliminary",
-          blurb:"Wind specifically hasn't been isolated in the natural-sound literature the way rain, water, and birdsong have — it's included here as a plausible extension of the broader natural-soundscape findings, not as its own tested condition.",
+        {id:"nature-ocean-stormy", name:"Stormy Surf", tier:"supported", natureType:"ocean", natureVariant:"stormy",
+          blurb:"A faster, louder swell with a brighter crash on each wave. Same evidence base as Calm Shore — the research tested natural vs. artificial sound broadly, not wave intensity specifically.",
+          pairs:"Masking a busier environment, or focus work that benefits from more energetic background texture.",
+          sources:[{label:"Gould van Praag et al. 2017, Sci. Rep.", url:"https://www.nature.com/articles/srep45273"}]},
+        {id:"nature-wind-breeze", name:"Gentle Breeze", tier:"preliminary", natureType:"wind", natureVariant:"breeze",
+          blurb:"Wind specifically hasn't been isolated in the natural-sound literature the way rain, water, and birdsong have — it's included here as a plausible extension of the broader natural-soundscape findings, not as its own tested condition. This is the softer, narrower-band variant.",
           pairs:"Open-plan focus work as a less rhythmic alternative to rain or ocean."},
-        {id:"nature-forest", name:"Forest & Birdsong", tier:"preliminary",
-          blurb:"Mixed evidence, worth stating plainly: interview-based research found birdsong is widely perceived as restorative, and a 2022 study found it eased anxiety and paranoia in healthy volunteers — but a separate controlled city-park trial found no measurable stress-recovery advantage over ambient traffic noise. Effects likely depend heavily on which birds, how loud, and who's listening.",
+        {id:"nature-wind-gusts", name:"Strong Gusts", tier:"preliminary", natureType:"wind", natureVariant:"gusts",
+          blurb:"A wider, faster-sweeping version of the same filtered-noise technique — more dramatic, and equally untested as its own condition. Same caveat as Gentle Breeze: a plausible extension of natural-soundscape research, not a tested variable in it.",
+          pairs:"Masking unpredictable outdoor or traffic noise."},
+        {id:"nature-forest-dawn", name:"Dawn Chorus", tier:"preliminary", natureType:"forest", natureVariant:"dawn",
+          blurb:"A busier mix of frequent, overlapping calls, modeling the burst of bird activity around sunrise. Mixed evidence, worth stating plainly: interview-based research found birdsong widely perceived as restorative, and a 2022 study found it eased anxiety and paranoia in healthy volunteers — but a separate controlled city-park trial found no measurable stress-recovery advantage over ambient traffic noise. Call density itself wasn't the tested variable.",
+          pairs:"Morning focus sessions or an energizing alternative to a fully quiet background.",
+          sources:[{label:"Ratcliffe et al. 2013, J. Environ. Psychol.", url:"https://www.sciencedirect.com/science/article/abs/pii/S0272494413000650"},{label:"Null result: Sounds of Nature in the City, PMC", url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6518283/"}]},
+        {id:"nature-forest-quiet", name:"Quiet Forest", tier:"preliminary", natureType:"forest", natureVariant:"quiet",
+          blurb:"A sparser mix — long gaps between single, isolated calls, closer to midday forest stillness than a dawn chorus. Same mixed evidence as Dawn Chorus: perceived as restorative in interview research, protective against anxiety in one small trial, but not shown to beat traffic noise in a separate controlled study.",
           pairs:"Outdoor-style relaxation breaks — pairs naturally with actually going outside.",
           sources:[{label:"Ratcliffe et al. 2013, J. Environ. Psychol.", url:"https://www.sciencedirect.com/science/article/abs/pii/S0272494413000650"},{label:"Null result: Sounds of Nature in the City, PMC", url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6518283/"}]}
       ]
@@ -722,7 +737,8 @@
         base: item.base,
         beat: item.beat,
         noiseType: cat.mode==="noise" ? item.id.replace("noise-","") : undefined,
-        natureType: cat.mode==="nature" ? item.id.replace("nature-","") : undefined,
+        natureType: cat.mode==="nature" ? item.natureType : undefined,
+        natureVariant: cat.mode==="nature" ? item.natureVariant : undefined,
         waveform: "sine",
         label: item.name,
         headphones: cat.mode==="binaural"
@@ -1290,60 +1306,73 @@
 
   function buildNatureNodes(cfg, now){
     if(cfg.natureType === "rain"){
+      const heavy = cfg.natureVariant === "heavy";
       const buf = makeNoiseBuffer("white");
       const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const hp = audioCtx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 700;
-      const bp = audioCtx.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 3200; bp.Q.value = 0.7; bp.gain.value = 6;
-      src.connect(hp).connect(bp).connect(masterGain);
+      const hp = audioCtx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = heavy ? 500 : 1000;
+      const bp = audioCtx.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = heavy ? 2800 : 3800; bp.Q.value = 0.7; bp.gain.value = heavy ? 9 : 4;
+      const gain = audioCtx.createGain(); gain.gain.value = heavy ? 0.85 : 0.55;
+      src.connect(hp).connect(bp).connect(gain).connect(masterGain);
       src.start(now);
       currentNodes = [src];
+      if(heavy){
+        const rumbleBuf = makeNoiseBuffer("brown");
+        const rumbleSrc = audioCtx.createBufferSource(); rumbleSrc.buffer = rumbleBuf; rumbleSrc.loop = true;
+        const rumbleLp = audioCtx.createBiquadFilter(); rumbleLp.type = "lowpass"; rumbleLp.frequency.value = 200;
+        const rumbleGain = audioCtx.createGain(); rumbleGain.gain.value = 0.25;
+        rumbleSrc.connect(rumbleLp).connect(rumbleGain).connect(masterGain);
+        rumbleSrc.start(now);
+        currentNodes.push(rumbleSrc);
+      }
     } else if(cfg.natureType === "ocean"){
+      const stormy = cfg.natureVariant === "stormy";
       const buf = makeNoiseBuffer("brown");
       const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const lp = audioCtx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
-      const swell = audioCtx.createGain(); swell.gain.value = 0.7;
-      const lfo = audioCtx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 0.13;
-      const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 0.35;
-      const offset = audioCtx.createConstantSource(); offset.offset.value = 0.65;
+      const lp = audioCtx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = stormy ? 1300 : 900;
+      const swell = audioCtx.createGain(); swell.gain.value = stormy ? 0.85 : 0.7;
+      const lfo = audioCtx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = stormy ? 0.22 : 0.13;
+      const lfoGain = audioCtx.createGain(); lfoGain.gain.value = stormy ? 0.45 : 0.35;
+      const offset = audioCtx.createConstantSource(); offset.offset.value = stormy ? 0.55 : 0.65;
       lfo.connect(lfoGain); lfoGain.connect(swell.gain); offset.connect(swell.gain);
       src.connect(lp).connect(swell).connect(masterGain);
       src.start(now); lfo.start(now); offset.start(now);
       currentNodes = [src, lfo, offset];
     } else if(cfg.natureType === "wind"){
+      const gusty = cfg.natureVariant === "gusts";
       const buf = makeNoiseBuffer("pink");
       const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const bp = audioCtx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.9;
-      const lfo = audioCtx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 0.06;
-      const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 250;
-      const offset = audioCtx.createConstantSource(); offset.offset.value = 450;
+      const bp = audioCtx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = gusty ? 0.7 : 1.1;
+      const gain = audioCtx.createGain(); gain.gain.value = gusty ? 0.8 : 0.5;
+      const lfo = audioCtx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = gusty ? 0.12 : 0.05;
+      const lfoGain = audioCtx.createGain(); lfoGain.gain.value = gusty ? 400 : 180;
+      const offset = audioCtx.createConstantSource(); offset.offset.value = gusty ? 500 : 400;
       lfo.connect(lfoGain); lfoGain.connect(bp.frequency); offset.connect(bp.frequency);
-      src.connect(bp).connect(masterGain);
+      src.connect(bp).connect(gain).connect(masterGain);
       src.start(now); lfo.start(now); offset.start(now);
       currentNodes = [src, lfo, offset];
     } else if(cfg.natureType === "forest"){
+      const dawn = cfg.natureVariant === "dawn";
       const buf = makeNoiseBuffer("pink");
       const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
       const bp = audioCtx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1200; bp.Q.value = 0.5;
-      const bed = audioCtx.createGain(); bed.gain.value = 0.16;
+      const bed = audioCtx.createGain(); bed.gain.value = dawn ? 0.2 : 0.11;
       src.connect(bp).connect(bed).connect(masterGain);
       src.start(now);
       currentNodes = [src];
-      scheduleChirp();
+      scheduleChirp(dawn);
     }
   }
 
-  function scheduleChirp(){
-    const delay = 900 + Math.random()*2600;
-    natureChirpTimeout = setTimeout(()=>{
-      playChirp();
-      scheduleChirp();
-    }, delay);
+  function scheduleChirp(dawn){
+    playChirp(dawn);
+    const delay = dawn ? (500 + Math.random()*1200) : (2500 + Math.random()*5000);
+    natureChirpTimeout = setTimeout(()=> scheduleChirp(dawn), delay);
   }
 
-  function playChirp(){
+  function playChirp(dawn){
     if(!audioCtx) return;
     const now = audioCtx.currentTime;
-    const notes = 2 + Math.floor(Math.random()*3);
+    const notes = dawn ? (3 + Math.floor(Math.random()*4)) : (1 + Math.floor(Math.random()*2));
     let t = now;
     for(let i=0;i<notes;i++){
       const osc = audioCtx.createOscillator();
@@ -1546,7 +1575,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20261008172903";
+  var CURRENT_VERSION = "20261009010458";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
