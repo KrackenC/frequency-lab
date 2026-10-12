@@ -228,6 +228,11 @@
   .loop-status.flash{ color:var(--tier-preliminary); }
   .loop-interval{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:var(--muted); }
 
+  .solfeggio-rotation{ margin:4px 0 18px; padding-top:16px; border-top:1px solid var(--border); }
+  .rotation-head{ display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .rotation-title{ font-family:var(--mono); font-size:13px; font-weight:600; color:var(--ink); }
+  .rotation-note{ font-size:12px; color:var(--muted); line-height:1.5; max-width:70ch; }
+
   .loop-tips{ margin-top:18px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:0 16px; }
   .loop-tips summary{
     cursor:pointer; padding:12px 0; font-family:var(--mono); font-size:11.5px; text-transform:uppercase;
@@ -709,6 +714,13 @@
   const PICK_BUTTONS = {}; // id -> pick button element
   const CARD_DETAILS = {}; // id -> the <details> element containing that card
 
+  const SOLFEGGIO_ROTATION_IDS = ["sol-174","sol-285","sol-396","sol-417","sol-528","sol-639","sol-741","sol-852","sol-963"];
+  let solRotationBtn, solRotationLabelEl, solRotationStatusEl, solRotationIntervalSelect;
+  let solRotationActive = false;
+  let solRotationIndex = 0;
+  let solRotationRemaining = 600;
+  let solRotationTickInterval = null;
+
   PRESETS.forEach(cat=>{
     const tierDots = [...new Set(cat.items.map(i=>i.tier))]
       .map(t=>`<span class="dot" style="background:${TIERS[t].color}" title="${TIERS[t].label}"></span>`)
@@ -768,6 +780,43 @@
       grid.appendChild(card);
     });
     section.appendChild(grid);
+
+    if(cat.key === "solfeggio"){
+      const rotationEl = document.createElement("div");
+      rotationEl.className = "solfeggio-rotation";
+      rotationEl.innerHTML = `
+        <div class="rotation-head">
+          <span class="rotation-title">Cycle All 9 Tones</span>
+          <span class="rotation-note">174 → 285 → 396 → 417 → 528 → 639 → 741 → 852 → 963 Hz, in that order, on repeat. Same “Traditional / Unproven” tier as every card above — a themed rotation through the full historical set, not a protocol, and no claim that cycling through them does anything a single tone wouldn't.</span>
+        </div>
+        <div class="loop-controls">
+          <button class="play-btn" id="solRotationBtn"><span class="tri"></span><span id="solRotationLabel">Start Rotation</span></button>
+          <div class="loop-interval">EACH FOR
+            <select id="solRotationInterval">
+              <option value="5">5 min</option>
+              <option value="10" selected>10 min</option>
+              <option value="15">15 min</option>
+              <option value="20">20 min</option>
+            </select>
+          </div>
+          <div class="loop-status" id="solRotationStatus">Ready — 10 min per tone</div>
+        </div>
+      `;
+      section.appendChild(rotationEl);
+
+      solRotationBtn = rotationEl.querySelector("#solRotationBtn");
+      solRotationLabelEl = rotationEl.querySelector("#solRotationLabel");
+      solRotationStatusEl = rotationEl.querySelector("#solRotationStatus");
+      solRotationIntervalSelect = rotationEl.querySelector("#solRotationInterval");
+
+      solRotationBtn.addEventListener("click", ()=>{
+        if(solRotationActive) stopPlayback(false);
+        else startSolRotation();
+      });
+      solRotationIntervalSelect.addEventListener("change", ()=> updateSolRotationPlayState());
+      updateSolRotationPlayState();
+    }
+
     catsEl.appendChild(section);
   });
 
@@ -1102,6 +1151,61 @@
     loopPlayLabelEl.textContent = "Start Loop";
     loopPlayBtn.classList.remove("is-stop");
     updateLoopPlayState();
+  }
+
+  /* ---------------- solfeggio 9-tone rotation ---------------- */
+
+  function getSolRotationIntervalSeconds(){
+    return Number(solRotationIntervalSelect.value) * 60;
+  }
+
+  function updateSolRotationPlayState(){
+    if(!solRotationActive){
+      solRotationStatusEl.textContent = `Ready — ${solRotationIntervalSelect.value} min per tone`;
+    }
+  }
+
+  function startSolRotation(){
+    solRotationActive = true;
+    solRotationIndex = 0;
+    solRotationRemaining = getSolRotationIntervalSeconds();
+    solRotationLabelEl.textContent = "Stop Rotation";
+    solRotationBtn.classList.add("is-stop");
+    solRotationIntervalSelect.disabled = true;
+    playSolRotationStep(solRotationIndex);
+    solRotationTickInterval = setInterval(solRotationTick, 1000);
+  }
+
+  function solRotationTick(){
+    solRotationRemaining--;
+    updateSolRotationStatusText();
+    if(solRotationRemaining <= 0){
+      solRotationIndex = (solRotationIndex + 1) % SOLFEGGIO_ROTATION_IDS.length;
+      solRotationRemaining = getSolRotationIntervalSeconds();
+      playSolRotationStep(solRotationIndex);
+    }
+  }
+
+  function playSolRotationStep(i){
+    const id = SOLFEGGIO_ROTATION_IDS[i];
+    const entry = PRESET_INDEX[id];
+    if(!entry) return;
+    playConfig(entry.cfg, id, {fromSolRotation:true});
+    updateSolRotationStatusText();
+  }
+
+  function updateSolRotationStatusText(){
+    solRotationStatusEl.textContent = `Playing ${solRotationIndex+1} of 9 · next in ${formatTime(solRotationRemaining)}`;
+  }
+
+  function cancelSolRotation(){
+    if(!solRotationActive) return;
+    solRotationActive = false;
+    if(solRotationTickInterval){ clearInterval(solRotationTickInterval); solRotationTickInterval = null; }
+    solRotationIntervalSelect.disabled = false;
+    solRotationLabelEl.textContent = "Start Rotation";
+    solRotationBtn.classList.remove("is-stop");
+    updateSolRotationPlayState();
   }
 
   /* ---------------- audio engine ---------------- */
@@ -1469,6 +1573,7 @@
   function playConfig(cfg, id, opts){
     opts = opts || {};
     if(!opts.fromLoop) cancelLoop();
+    if(!opts.fromSolRotation) cancelSolRotation();
     if(natureChirpTimeout){ clearTimeout(natureChirpTimeout); natureChirpTimeout = null; }
     if(adaptivePadTimeout){ clearTimeout(adaptivePadTimeout); adaptivePadTimeout = null; }
     ensureAudio();
@@ -1498,6 +1603,7 @@
 
   function stopPlayback(hard){
     cancelLoop();
+    cancelSolRotation();
     if(natureChirpTimeout){ clearTimeout(natureChirpTimeout); natureChirpTimeout = null; }
     if(adaptivePadTimeout){ clearTimeout(adaptivePadTimeout); adaptivePadTimeout = null; }
     if(!audioCtx) return;
@@ -1575,7 +1681,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20261009010458";
+  var CURRENT_VERSION = "20261012013822";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
