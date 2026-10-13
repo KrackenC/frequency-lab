@@ -1417,11 +1417,19 @@
       const buf = makeNoiseBuffer("white");
       const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
       const hp = audioCtx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = heavy ? 500 : 1000;
-      const bp = audioCtx.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = heavy ? 2800 : 3800; bp.Q.value = 0.7; bp.gain.value = heavy ? 9 : 4;
-      const gain = audioCtx.createGain(); gain.gain.value = heavy ? 0.65 : 0.42;
+      const bp = audioCtx.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = heavy ? 2800 : 3800; bp.Q.value = 0.7; bp.gain.value = heavy ? 6 : 3;
+      // kept quiet and set to drift rather than sit dead-flat — this bed is now
+      // just a distant wash behind the foreground droplets, not the main signal.
+      // A loud, perfectly steady broadband layer is exactly what reads as "static"
+      // instead of rain; the individual plinks below are what should carry it.
+      const gain = audioCtx.createGain(); gain.gain.value = 0;
+      const bedLfo = audioCtx.createOscillator(); bedLfo.type = "sine"; bedLfo.frequency.value = heavy ? 0.045 : 0.03;
+      const bedLfoGain = audioCtx.createGain(); bedLfoGain.gain.value = heavy ? 0.06 : 0.035;
+      const bedOffset = audioCtx.createConstantSource(); bedOffset.offset.value = heavy ? 0.26 : 0.12;
+      bedLfo.connect(bedLfoGain); bedLfoGain.connect(gain.gain); bedOffset.connect(gain.gain);
       src.connect(hp).connect(bp).connect(gain).connect(masterGain);
-      src.start(now);
-      currentNodes = [src];
+      src.start(now); bedLfo.start(now); bedOffset.start(now);
+      currentNodes = [src, bedLfo, bedOffset];
       if(heavy){
         const rumbleBuf = makeNoiseBuffer("brown");
         const rumbleSrc = audioCtx.createBufferSource(); rumbleSrc.buffer = rumbleBuf; rumbleSrc.loop = true;
@@ -1498,7 +1506,7 @@
 
   function scheduleDroplet(heavy){
     playDroplet(heavy);
-    const delay = heavy ? 20 + Math.random()*55 : 45 + Math.random()*140;
+    const delay = heavy ? 18 + Math.random()*48 : 70 + Math.random()*190;
     natureDropletTimeout = setTimeout(()=> scheduleDroplet(heavy), delay);
   }
 
@@ -1507,17 +1515,21 @@
     const now = audioCtx.currentTime;
     const src = audioCtx.createBufferSource(); src.buffer = getDropletBuffer();
     const bp = audioCtx.createBiquadFilter(); bp.type = "bandpass";
-    bp.frequency.value = (heavy ? 1600 : 3000) + Math.random()*2400;
-    bp.Q.value = 5 + Math.random()*7;
+    // a real drop's impact rings briefly then its pitch falls as the resonance
+    // dies out — a static bandpass frequency just colors noise, it doesn't "plink"
+    const startFreq = (heavy ? 1700 : 3200) + Math.random()*2600;
+    bp.frequency.setValueAtTime(startFreq, now);
+    bp.frequency.exponentialRampToValueAtTime(startFreq*0.5, now + 0.045 + Math.random()*0.03);
+    bp.Q.value = 8 + Math.random()*9;
     const g = audioCtx.createGain();
-    const peak = (heavy ? 0.11 : 0.065) * (0.5 + Math.random()*0.7);
+    const peak = (heavy ? 0.16 : 0.12) * (0.55 + Math.random()*0.6);
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(peak, now+0.003);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.04 + Math.random()*0.03);
+    g.gain.linearRampToValueAtTime(peak, now+0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.035 + Math.random()*0.025);
     const pan = audioCtx.createStereoPanner(); pan.pan.value = Math.random()*2-1;
     src.connect(bp).connect(g).connect(pan).connect(masterGain);
     src.start(now);
-    src.stop(now+0.12);
+    src.stop(now+0.1);
   }
 
   function getCrashBuffer(){
@@ -1798,7 +1810,7 @@
 </script>
 <script>
 (function(){
-  var CURRENT_VERSION = "20261013195413";
+  var CURRENT_VERSION = "20261013220854";
   function showBanner(){
     if(document.getElementById('update-bar')) return;
     var bar = document.createElement('div');
